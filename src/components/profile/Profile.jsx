@@ -6,9 +6,27 @@ import ConnectionsTab from '../connections/ConnectionsTab'
 
 const SEGMENTS = ['Corporate', 'Wedding', 'Social', 'Sports', 'Religious', 'Government', 'Tour & Travel']
 const TONES = [
-  { value: 'professional', label: 'Professional', desc: 'Clear, confident, business-focused' },
-  { value: 'warm', label: 'Warm', desc: 'Friendly, personal, welcoming' },
-  { value: 'luxury', label: 'Luxury', desc: 'Refined, elegant, aspirational' }
+  {
+    value: 'professional',
+    label: 'Professional',
+    icon: '💼',
+    desc: 'Clear, confident, business-focused',
+    example: '"Thank you for your inquiry. We\'d be glad to accommodate your group and can offer competitive rates for your dates."'
+  },
+  {
+    value: 'warm',
+    label: 'Warm',
+    icon: '🤝',
+    desc: 'Friendly, personal, welcoming',
+    example: '"We\'d love to have your group with us! Our team will make sure everything feels just right from the moment you arrive."'
+  },
+  {
+    value: 'luxury',
+    label: 'Luxury',
+    icon: '✦',
+    desc: 'Refined, elegant, aspirational',
+    example: '"We would be honoured to curate an exceptional experience for your group, tailored to the highest standard of service."'
+  }
 ]
 
 export default function Profile() {
@@ -357,9 +375,15 @@ export default function Profile() {
                           checked={hotelForm.tone_of_voice === tone.value}
                           onChange={() => setHotelForm(f => ({ ...f, tone_of_voice: tone.value }))}
                         />
-                        <div>
-                          <div className="tone-label">{tone.label}</div>
-                          <div className="tone-desc">{tone.desc}</div>
+                        <div className="tone-content">
+                          <div className="tone-top">
+                            <span className="tone-icon">{tone.icon}</span>
+                            <div>
+                              <div className="tone-label">{tone.label}</div>
+                              <div className="tone-desc">{tone.desc}</div>
+                            </div>
+                          </div>
+                          <div className="tone-example">{tone.example}</div>
                         </div>
                       </label>
                     ))}
