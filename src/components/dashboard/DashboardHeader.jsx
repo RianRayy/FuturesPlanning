@@ -1,4 +1,11 @@
-export default function MorningBriefing({
+// =============================================
+// Live Dashboard Header
+// Replaces "Morning Briefing" — updates in real
+// time throughout the day, smart summary line
+// reflects actual current state at any hour.
+// =============================================
+
+export default function DashboardHeader({
   userName,
   hotelName,
   hotCount,
@@ -14,26 +21,44 @@ export default function MorningBriefing({
   activeFilter,
   seasonalFilter,
   onStatClick,
-  onScrollTo
+  onScrollTo,
+  processing
 }) {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const firstName = userName?.split(' ')[0] ?? 'there'
 
+  // Smart summary — reflects actual state right now, not time of day
+  function getSummary() {
+    const parts = []
+    if (pendingReplies > 0) parts.push(`${pendingReplies} ${pendingReplies === 1 ? 'reply' : 'replies'} waiting`)
+    if (dueFollowUps > 0) parts.push(`${dueFollowUps} follow-up${dueFollowUps !== 1 ? 's' : ''} due`)
+    if (rejectedCount > 0) parts.push(`${rejectedCount} pending decline${rejectedCount !== 1 ? 's' : ''}`)
+    if (parts.length > 0) return parts.join(' · ')
+    if (hotCount > 0) return `${hotCount} hot lead${hotCount !== 1 ? 's' : ''} ready to send`
+    if (warmCount > 0) return `${warmCount} warm lead${warmCount !== 1 ? 's' : ''} worth a look`
+    return 'All caught up — no urgent items right now'
+  }
+
   return (
-    <div className="morning-briefing">
-      <div className="briefing-header">
-        <div className="briefing-text">
+    <div className="dash-header">
+      <div className="dash-header-top">
+        <div className="dash-header-text">
           <h1>{greeting}, {firstName}.</h1>
-          <p className="briefing-subtitle">{hotelName} — Here is your sales briefing</p>
+          <p className="dash-summary">
+            <span className={`live-dot ${processing ? 'live-dot-processing' : ''}`} title={processing ? 'Scoring new leads...' : 'Live'} />
+            {processing ? 'Agent is scoring new leads...' : getSummary()}
+          </p>
         </div>
-        <div className="briefing-date">
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long', month: 'long', day: 'numeric'
-          })}
+        <div className="dash-header-meta">
+          <div className="dash-hotel">{hotelName}</div>
+          <div className="dash-date">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </div>
         </div>
       </div>
 
+      {/* Stat cards — tab-specific */}
       {activeTab === 'current' && (
         <div className="briefing-stats">
           <div
@@ -113,6 +138,7 @@ export default function MorningBriefing({
         </div>
       )}
 
+      {/* Tab bar */}
       <div className="briefing-tab-bar">
         <button
           className={`briefing-tab ${activeTab === 'current' ? 'briefing-tab-active' : ''}`}
@@ -131,9 +157,7 @@ export default function MorningBriefing({
         >
           Recruiting
           {(seasonalCount ?? 0) > 0 && (
-            <span className="briefing-tab-count count-seasonal">
-              {seasonalCount}
-            </span>
+            <span className="briefing-tab-count count-seasonal">{seasonalCount}</span>
           )}
         </button>
         <button
@@ -142,9 +166,7 @@ export default function MorningBriefing({
         >
           Rejected
           {(rejectedCount ?? 0) > 0 && (
-            <span className="briefing-tab-count count-rejected">
-              {rejectedCount}
-            </span>
+            <span className="briefing-tab-count count-rejected">{rejectedCount}</span>
           )}
         </button>
       </div>

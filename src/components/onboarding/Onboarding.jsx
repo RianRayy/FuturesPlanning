@@ -39,27 +39,55 @@ export default function Onboarding() {
 
   async function handleFinish() {
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: hotelUser } = await supabase
-      .from('hotel_users')
-      .select('hotel_id')
-      .eq('user_id', user.id)
-      .single()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
 
-    await supabase.from('hotel_profiles').upsert({
-      hotel_id: hotelUser.hotel_id,
-      room_count: parseInt(form.room_count),
-      rate_min: parseFloat(form.rate_min),
-      rate_max: parseFloat(form.rate_max),
-      min_group_size: parseInt(form.min_group_size),
-      fb_minimum: parseFloat(form.fb_minimum) || 0,
-      hotel_description: form.hotel_description,
-      tone_of_voice: form.tone_of_voice,
-      target_segments: form.target_segments.map(s => s.toLowerCase())
-    })
+      // Try to find existing hotel_users record
+      let { data: hotelUser } = await supabase
+        .from('hotel_users')
+        .select('hotel_id')
+        .eq('user_id', user.id)
+        .single()
 
-    setSaving(false)
-    navigate('/dashboard')
+      // If no hotel_users record exists, create hotel + hotel_users via RPC
+      if (!hotelUser) {
+        const subdomain = (user.email.split('@')[0])
+          .toLowerCase().replace(/[^a-z0-9-]/g, '') + '-' + Date.now()
+
+        const { data: newHotelId, error: rpcError } = await supabase
+          .rpc('create_hotel_for_user', {
+            hotel_name: 'My Hotel',
+            hotel_subdomain: subdomain
+          })
+
+        if (rpcError) throw rpcError
+        hotelUser = { hotel_id: newHotelId }
+      }
+
+      // Save hotel profile
+      const { error: profileError } = await supabase
+        .from('hotel_profiles')
+        .upsert({
+          hotel_id: hotelUser.hotel_id,
+          room_count: parseInt(form.room_count) || 0,
+          rate_min: parseFloat(form.rate_min) || 0,
+          rate_max: parseFloat(form.rate_max) || 0,
+          min_group_size: parseInt(form.min_group_size) || 10,
+          fb_minimum: parseFloat(form.fb_minimum) || 0,
+          hotel_description: form.hotel_description,
+          tone_of_voice: form.tone_of_voice,
+          target_segments: form.target_segments.map(s => s.toLowerCase())
+        })
+
+      if (profileError) throw profileError
+
+      navigate('/dashboard')
+    } catch (err) {
+      console.error('Onboarding error:', err)
+      alert('Something went wrong: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

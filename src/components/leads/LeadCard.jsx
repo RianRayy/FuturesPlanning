@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabase'
 import { format } from 'date-fns'
+import { PLATFORM_CONFIG } from '../../integrations'
 
 const SCORE_CONFIG = {
   hot: { label: 'Hot', className: 'score-hot', emoji: '🔴' },
@@ -9,17 +10,33 @@ const SCORE_CONFIG = {
   cold: { label: 'Cold', className: 'score-cold', emoji: '⚪' }
 }
 
-export default function LeadCard({ lead, onUpdate }) {
+export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const navigate = useNavigate()
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(!!lead.lead_decisions?.sent_at)
+  const [declining, setDeclining] = useState(false)
+  const [declined, setDeclined] = useState(false)
 
   const decision = lead.lead_decisions
   const score = decision?.score ?? 'cold'
   const config = SCORE_CONFIG[score]
+  const platform = PLATFORM_CONFIG[lead.source] ?? PLATFORM_CONFIG.email
 
   const checkIn = lead.dates_requested?.check_in
   const checkOut = lead.dates_requested?.check_out
+
+  async function handleDecline() {
+    if (!window.confirm(`Decline ${lead.contact_name}'s inquiry? A decline email will be sent automatically.`)) return
+    setDeclining(true)
+    try {
+      await onDecline(lead, hotelId)
+      setDeclined(true)
+      onUpdate?.()
+    } catch (err) {
+      console.error('Decline error:', err)
+    }
+    setDeclining(false)
+  }
 
   async function handleApproveAndSend() {
     setSending(true)
@@ -59,7 +76,12 @@ export default function LeadCard({ lead, onUpdate }) {
           <span className="score-emoji">{config.emoji}</span>
           <span className="score-label">{config.label}</span>
         </div>
-        <div className="lead-source">{lead.source}</div>
+        <div
+          className="lead-source-badge"
+          style={{ color: platform.color, background: platform.bg, borderColor: platform.color }}
+        >
+          {platform.label}
+        </div>
       </div>
 
       <div className="lead-card-body">
@@ -94,8 +116,18 @@ export default function LeadCard({ lead, onUpdate }) {
       </div>
 
       <div className="lead-card-actions">
-        {!sent ? (
+        {declined ? (
+          <div className="declined-badge">Declined ✓</div>
+        ) : !sent ? (
           <>
+            <button
+              className="btn-decline-sm"
+              onClick={handleDecline}
+              disabled={declining}
+              title="Decline this inquiry"
+            >
+              {declining ? '...' : 'Decline'}
+            </button>
             <button
               className="btn-outline"
               onClick={() => navigate(`/leads/${lead.id}`)}
@@ -111,9 +143,7 @@ export default function LeadCard({ lead, onUpdate }) {
             </button>
           </>
         ) : (
-          <div className="sent-badge">
-            Email sent ✓
-          </div>
+          <div className="sent-badge">Email sent ✓</div>
         )}
       </div>
     </div>

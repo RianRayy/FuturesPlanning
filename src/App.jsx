@@ -6,6 +6,8 @@ import Register from './components/auth/Register'
 import Dashboard from './components/dashboard/Dashboard'
 import LeadDetail from './components/leads/LeadDetail'
 import Onboarding from './components/onboarding/Onboarding'
+import Profile from './components/profile/Profile'
+import OAuthCallback from './components/connections/OAuthCallback'
 import './index.css'
 
 function App() {
@@ -41,6 +43,8 @@ function App() {
         <Route path="/onboarding" element={session ? <Onboarding /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={session ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/leads/:id" element={session ? <LeadDetail /> : <Navigate to="/login" />} />
+        <Route path="/profile" element={session ? <Profile /> : <Navigate to="/login" />} />
+        <Route path="/oauth/callback/:provider" element={<OAuthCallback />} />
         <Route path="*" element={<Navigate to={session ? "/dashboard" : "/login"} />} />
       </Routes>
     </BrowserRouter>

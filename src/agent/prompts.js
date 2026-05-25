@@ -89,6 +89,42 @@ Respond with valid JSON:
 }
 
 /**
+ * Prompt for generating a polite decline email.
+ * Used both for auto-rejections (hard criteria failures)
+ * and manual declines where the rep decides to pass.
+ */
+export function buildRejectionPrompt(lead, rejectionReason, hotelProfile) {
+  return `You are a hotel sales assistant for ${hotelProfile.hotel_name}.
+
+Write a short, professional decline email for a group inquiry that cannot be accommodated.
+
+LEAD:
+- Contact: ${lead.contact_name}${lead.company ? ` at ${lead.company}` : ''}
+- Event type: ${lead.event_type || 'group event'}
+- Group size: ${lead.group_size || 'unspecified'} rooms
+- Requested dates: ${lead.dates_requested?.check_in ?? 'unspecified'}${lead.dates_requested?.check_out ? ` – ${lead.dates_requested.check_out}` : ''}
+
+REASON WE CANNOT ACCOMMODATE:
+${rejectionReason}
+
+HOTEL TONE: ${hotelProfile.tone_of_voice}
+
+INSTRUCTIONS:
+- Be warm, respectful, and professional — this group may return in future or recommend us
+- Do NOT state the specific internal reason bluntly (e.g. don't say "your group is too large")
+- Instead, phrase it diplomatically (e.g. "we are unable to accommodate your group size during this period")
+- Express genuine regret and wish them well with their event
+- Keep it under 100 words
+- Do NOT suggest a competitor
+
+Respond with valid JSON:
+{
+  "subject": "decline email subject line",
+  "body": "full polite decline email body"
+}`
+}
+
+/**
  * Prompt for generating follow-up emails (Day 3, 7, 14).
  */
 export function buildFollowUpPrompt(lead, sequenceDay, previousEmailBody, hotelProfile) {

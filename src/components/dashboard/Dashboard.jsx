@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '../../supabase'
-import { processPendingLeads } from '../../agent/decide'
+import { processPendingLeads, declineLead } from '../../agent/decide'
+import { runSeasonalAnalysis } from '../../agent/seasonal'
+import { ingestAllPlatforms } from '../../integrations'
 import LeadCard from '../leads/LeadCard'
-import MorningBriefing from './MorningBriefing'
+import DashboardHeader from './DashboardHeader'
 import FollowUpSection from './FollowUpSection'
 import ReplySection from './ReplySection'
-
-const LAST_VISIT_KEY = 'hp_last_visit_date'
+import SeasonalSection from './SeasonalSection'
+import RejectionSection from './RejectionSection'
+import NavBar from '../shared/NavBar'
+import ConnectPlatformsModal from '../connections/ConnectPlatformsModal'
 
 export default function Dashboard() {
   const [hotelId, setHotelId] = useState(null)
@@ -17,7 +21,20 @@ export default function Dashboard() {
   const [replyDrafts, setReplyDrafts] = useState([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [isFirstVisitToday, setIsFirstVisitToday] = useState(false)
+  const [showRemaining, setShowRemaining] = useState(false)
+  const [generatingRest, setGeneratingRest] = useState(false)
+  const [activeTab, setActiveTab] = useState('current')
+  const [activeFilter, setActiveFilter] = useState(null)
+  const [seasonalFilter, setSeasonalFilter] = useState(null)
+  const [seasonalOutreach, setSeasonalOutreach] = useState([])
+  const [rejectedLeads, setRejectedLeads] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [toast, setToast] = useState(null)
+  const [showConnectModal, setShowConnectModal] = useState(false)
+  const [hasConnections, setHasConnections] = useState(true)
+  const [userId, setUserId] = useState(null)
+  const prevTop5Ref = useRef([])
+  const hotelIdRef = useRef(null)
 
   useEffect(() => {
     loadDashboard()
@@ -26,7 +43,6 @@ export default function Dashboard() {
   async function loadDashboard() {
     setLoading(true)
 
-    // Get current user's hotel
     const { data: { user } } = await supabase.auth.getUser()
     const { data: hotelUser } = await supabase
       .from('hotel_users')
@@ -37,36 +53,134 @@ export default function Dashboard() {
     if (!hotelUser) { setLoading(false); return }
 
     const hid = hotelUser.hotel_id
+    hotelIdRef.current = hid
     setHotelId(hid)
     setHotelName(hotelUser.hotels?.name ?? '')
     setUserName(hotelUser.full_name ?? 'there')
+    setUserId(user.id)
 
-    // Check if this is the first visit today
-    const today = new Date().toDateString()
-    const lastVisit = localStorage.getItem(LAST_VISIT_KEY)
-    const firstToday = lastVisit !== today
-    setIsFirstVisitToday(firstToday)
-    if (firstToday) {
-      localStorage.setItem(LAST_VISIT_KEY, today)
-      // Process any pending leads that came in overnight
-      await runMorningProcessing(hid)
+    // Check connections + whether to show setup modal
+    const { data: connections } = await supabase
+      .from('crm_connections')
+      .select('id')
+      .eq('hotel_id', hid)
+
+    const connected = (connections?.length ?? 0) > 0
+    setHasConnections(connected)
+
+    // Show modal if no connections and they haven't dismissed it before
+    if (!connected && !hotelUser.setup_dismissed) {
+      setShowConnectModal(true)
     }
 
+    // Load dashboard immediately
     await Promise.all([
       loadLeads(hid),
       loadFollowUps(hid),
-      loadReplyDrafts(hid)
+      loadReplyDrafts(hid),
+      loadSeasonalOutreach(hid),
+      loadRejectedLeads(hid)
     ])
 
     setLoading(false)
+
+    // Subscribe to real-time lead decision changes
+    setupRealtimeSubscription(hid)
+
+    // Pull new leads from all connected platforms, then score them —
+    // Delphi, Salesforce, HubSpot, Cvent, HotelPlanner all run in parallel
+    ingestAllPlatforms(hid)
+      .then(() => runProcessing(hid))
+      .catch(err => console.error('Platform ingestion error:', err))
+
+    // Run seasonal analysis in the background
+    runSeasonalAnalysis(hid)
+      .then(() => loadSeasonalOutreach(hid))
+      .catch(err => console.error('Seasonal analysis error:', err))
   }
 
-  async function runMorningProcessing(hid) {
+  function pushNotification(type, title, body) {
+    const notif = { id: Date.now(), type, title, body, timestamp: new Date(), read: false }
+    setNotifications(prev => [notif, ...prev].slice(0, 50)) // keep last 50
+    setToast({ title, body })
+    setTimeout(() => setToast(null), 5000)
+  }
+
+  function setupRealtimeSubscription(hid) {
+    const channel = supabase
+      .channel(`lead-decisions-${hid}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lead_decisions', filter: `hotel_id=eq.${hid}` },
+        async () => {
+          // A lead was scored or updated — reload and check top-5 changes
+          const currentHid = hotelIdRef.current
+          if (!currentHid) return
+          await loadLeadsAndDetectChanges(currentHid)
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'reply_drafts', filter: `hotel_id=eq.${hid}` },
+        async () => {
+          await loadReplyDrafts(hid)
+          pushNotification('reply', 'New reply received', 'A lead has replied — response draft is ready.')
+        }
+      )
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
+  }
+
+  async function loadLeadsAndDetectChanges(hid) {
+    const { data } = await supabase
+      .from('leads')
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at)`)
+      .eq('hotel_id', hid)
+      .eq('status', 'processed')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (!data) return
+    setLeads(data)
+
+    // Build new top 5 (same sort logic as below)
+    const sorted = [...data].sort((a, b) => {
+      const order = { hot: 0, warm: 1, cold: 2 }
+      return (order[a.lead_decisions?.score ?? 'cold'] ?? 2) - (order[b.lead_decisions?.score ?? 'cold'] ?? 2)
+    })
+    const unsent = sorted.filter(l => !l.lead_decisions?.sent_at && l.lead_decisions?.score)
+    const newTop5 = unsent.slice(0, 5)
+    const newTop5Ids = newTop5.map(l => l.id)
+    const prevTop5Ids = prevTop5Ref.current
+
+    if (prevTop5Ids.length > 0) {
+      const newEntrants = newTop5.filter(l => !prevTop5Ids.includes(l.id))
+      const bumped = prevTop5Ids.filter(id => !newTop5Ids.includes(id))
+
+      if (newEntrants.length > 0) {
+        const names = newEntrants.map(l => l.contact_name || 'A lead').join(', ')
+        const score = newEntrants[0].lead_decisions?.score
+        const scoreLabel = score === 'hot' ? '🔴 Hot' : score === 'warm' ? '🟡 Warm' : ''
+        pushNotification(
+          'rank_change',
+          `${scoreLabel} lead entered your Top 5`,
+          `${names} just moved up${bumped.length > 0 ? ' — ranking adjusted' : ''}`
+        )
+      }
+    }
+
+    prevTop5Ref.current = newTop5Ids
+  }
+
+  async function runProcessing(hid) {
     setProcessing(true)
     try {
       await processPendingLeads(hid)
+      // Refresh leads after processing completes
+      await loadLeads(hid)
     } catch (err) {
-      console.error('Morning processing error:', err)
+      console.error('Lead processing error:', err)
     }
     setProcessing(false)
   }
@@ -74,16 +188,24 @@ export default function Dashboard() {
   async function loadLeads(hid) {
     const { data } = await supabase
       .from('leads')
-      .select(`
-        *,
-        lead_decisions(score, reasoning, draft_subject, draft_body, sent_at)
-      `)
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at)`)
       .eq('hotel_id', hid)
       .eq('status', 'processed')
       .order('created_at', { ascending: false })
       .limit(50)
 
-    if (data) setLeads(data)
+    if (data) {
+      setLeads(data)
+      // Seed the ref on first load so we don't false-trigger on startup
+      if (prevTop5Ref.current.length === 0) {
+        const sorted = [...data].sort((a, b) => {
+          const order = { hot: 0, warm: 1, cold: 2 }
+          return (order[a.lead_decisions?.score ?? 'cold'] ?? 2) - (order[b.lead_decisions?.score ?? 'cold'] ?? 2)
+        })
+        const unsent = sorted.filter(l => !l.lead_decisions?.sent_at && l.lead_decisions?.score)
+        prevTop5Ref.current = unsent.slice(0, 5).map(l => l.id)
+      }
+    }
   }
 
   async function loadFollowUps(hid) {
@@ -99,6 +221,34 @@ export default function Dashboard() {
     if (data) setFollowUps(data)
   }
 
+  async function loadSeasonalOutreach(hid) {
+    const { data } = await supabase
+      .from('seasonal_outreach')
+      .select('*, leads(contact_name, company, event_type, group_size, budget_per_night, outcome, dates_requested)')
+      .eq('hotel_id', hid)
+      .eq('status', 'pending')
+      .order('potential_score', { ascending: false })
+    if (data) setSeasonalOutreach(data)
+  }
+
+  async function loadRejectedLeads(hid) {
+    const { data } = await supabase
+      .from('leads')
+      .select(`
+        *,
+        lead_decisions(auto_rejected, rejection_reason, rejection_draft_subject, rejection_draft_body, declined_at)
+      `)
+      .eq('hotel_id', hid)
+      .eq('status', 'processed')
+      .order('created_at', { ascending: false })
+
+    // Only show auto-rejected leads that haven't been declined/dismissed yet
+    const rejected = (data ?? []).filter(
+      l => l.lead_decisions?.auto_rejected && !l.lead_decisions?.declined_at
+    )
+    setRejectedLeads(rejected)
+  }
+
   async function loadReplyDrafts(hid) {
     const { data } = await supabase
       .from('reply_drafts')
@@ -110,7 +260,6 @@ export default function Dashboard() {
     if (data) setReplyDrafts(data)
   }
 
-  // Separate leads into top 5 hot and the rest
   const sortedLeads = [...leads].sort((a, b) => {
     const scoreOrder = { hot: 0, warm: 1, cold: 2 }
     const aScore = a.lead_decisions?.score ?? 'cold'
@@ -118,16 +267,29 @@ export default function Dashboard() {
     return scoreOrder[aScore] - scoreOrder[bScore]
   })
 
-  const top5 = sortedLeads.filter(l => !l.lead_decisions?.sent_at).slice(0, 5)
-  const remaining = sortedLeads.filter(l => !l.lead_decisions?.sent_at).slice(5)
-  const [showRemaining, setShowRemaining] = useState(false)
-  const [generatingRest, setGeneratingRest] = useState(false)
+  const unsent = sortedLeads.filter(l => !l.lead_decisions?.sent_at)
+  const filteredUnsent = activeFilter
+    ? unsent.filter(l => l.lead_decisions?.score === activeFilter)
+    : unsent
+  const top5 = filteredUnsent.slice(0, 5)
+  const remaining = filteredUnsent.slice(5)
+
+  function handleStatClick(filter) {
+    if (activeTab === 'current') {
+      setActiveFilter(prev => prev === filter ? null : filter)
+    } else if (activeTab === 'recruiting') {
+      setSeasonalFilter(prev => prev === filter ? null : filter)
+    }
+  }
+
+  function handleScrollTo(id) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   async function handleGenerateRest() {
     setGeneratingRest(true)
     if (hotelId) {
-      // Re-process any remaining pending leads
-      await runMorningProcessing(hotelId)
+      await runProcessing(hotelId)
       await loadLeads(hotelId)
     }
     setShowRemaining(true)
@@ -138,7 +300,7 @@ export default function Dashboard() {
     return (
       <div className="loading-screen">
         <div className="loading-spinner" />
-        <p>{processing ? 'Agent is processing overnight leads...' : 'Loading your dashboard...'}</p>
+        <p>Loading your dashboard...</p>
       </div>
     )
   }
@@ -147,47 +309,133 @@ export default function Dashboard() {
   const warmCount = leads.filter(l => l.lead_decisions?.score === 'warm').length
   const pendingReplies = replyDrafts.length
   const dueFollowUps = followUps.length
+  const seasonalCount = seasonalOutreach.length
+  const hotSeasonalCount = seasonalOutreach.filter(s => s.score_label === 'high').length
+  const warmSeasonalCount = seasonalOutreach.filter(s => s.score_label === 'medium').length
+  const rejectedCount = rejectedLeads.length
 
   return (
     <div className="dashboard">
-      {/* Morning Briefing Banner */}
-      <MorningBriefing
+      <NavBar
+        hotelName={hotelName}
+        userName={userName}
+        notifications={notifications}
+        hasConnections={hasConnections}
+        onMarkAllRead={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+      />
+
+      {showConnectModal && (
+        <ConnectPlatformsModal
+          hotelId={hotelId}
+          userId={userId}
+          onDismiss={() => {
+            setShowConnectModal(false)
+            // Re-check connections after dismissing
+            supabase.from('crm_connections').select('id').eq('hotel_id', hotelId)
+              .then(({ data }) => setHasConnections((data?.length ?? 0) > 0))
+          }}
+        />
+      )}
+
+      {toast && (
+        <div className="toast-notification" onClick={() => setToast(null)}>
+          <div className="toast-title">{toast.title}</div>
+          <div className="toast-body">{toast.body}</div>
+        </div>
+      )}
+
+      <DashboardHeader
         userName={userName}
         hotelName={hotelName}
         hotCount={hotCount}
         warmCount={warmCount}
         pendingReplies={pendingReplies}
         dueFollowUps={dueFollowUps}
-        isFirstVisitToday={isFirstVisitToday}
+        seasonalCount={seasonalCount}
+        hotSeasonalCount={hotSeasonalCount}
+        warmSeasonalCount={warmSeasonalCount}
+        rejectedCount={rejectedCount}
+        activeTab={activeTab}
+        onTabChange={(tab) => { setActiveTab(tab); setActiveFilter(null); setSeasonalFilter(null) }}
+        activeFilter={activeFilter}
+        seasonalFilter={seasonalFilter}
+        onStatClick={handleStatClick}
+        onScrollTo={handleScrollTo}
+        processing={processing}
       />
 
       <div className="dashboard-content">
-        {/* Reply Drafts — highest urgency, lead already responded */}
-        {replyDrafts.length > 0 && (
-          <ReplySection
-            replyDrafts={replyDrafts}
-            onUpdate={() => loadReplyDrafts(hotelId)}
-          />
+        {/* CURRENT TAB — replies + follow-ups */}
+        {activeTab === 'current' && (
+          <>
+            {replyDrafts.length > 0 && activeFilter !== 'followups' && (
+              <div id="replies-section">
+                <ReplySection
+                  replyDrafts={replyDrafts}
+                  onUpdate={() => loadReplyDrafts(hotelId)}
+                />
+              </div>
+            )}
+            {followUps.length > 0 && activeFilter !== 'replies' && (
+              <div id="followups-section">
+                <FollowUpSection
+                  followUps={followUps}
+                  onUpdate={() => loadFollowUps(hotelId)}
+                />
+              </div>
+            )}
+          </>
         )}
 
-        {/* Follow-ups due today */}
-        {followUps.length > 0 && (
-          <FollowUpSection
-            followUps={followUps}
-            onUpdate={() => loadFollowUps(hotelId)}
-          />
+        {/* REJECTED TAB */}
+        {activeTab === 'rejected' && (
+          rejectedLeads.length > 0
+            ? <RejectionSection
+                rejectedLeads={rejectedLeads}
+                onUpdate={() => loadRejectedLeads(hotelId)}
+              />
+            : <div className="empty-state">
+                <p>No rejected leads right now. Groups that exceed capacity or don't meet criteria will appear here automatically.</p>
+              </div>
         )}
 
-        {/* Top 5 leads with pre-drafted emails */}
-        <section className="leads-section">
+        {/* RECRUITING TAB */}
+        {activeTab === 'recruiting' && (
+          seasonalOutreach.length > 0
+            ? <SeasonalSection
+                outreachList={seasonalOutreach}
+                scoreFilter={seasonalFilter}
+                onClearFilter={() => setSeasonalFilter(null)}
+                onUpdate={() => loadSeasonalOutreach(hotelId)}
+              />
+            : <div className="empty-state">
+                <p>No recruiting opportunities right now. Check back as you approach past booking windows.</p>
+              </div>
+        )}
+
+        {activeTab === 'current' && activeFilter !== 'replies' && activeFilter !== 'followups' && <section className="leads-section" id="leads-section">
           <div className="section-header">
-            <h2>Top Leads — Emails Ready to Send</h2>
-            <span className="section-badge">{top5.length} ready</span>
+            <div>
+              <h2>
+                {activeFilter === 'hot'  ? '🔴 Hot Leads' :
+                 activeFilter === 'warm' ? '🟡 Warm Leads' :
+                 'Top Leads — Emails Ready to Send'}
+              </h2>
+              <p className="section-subheader">Ranked by score across all connected platforms — Delphi, Salesforce, HubSpot, Cvent, HotelPlanner & more</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {activeFilter && !['replies', 'followups'].includes(activeFilter) && (
+                <button className="btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setActiveFilter(null)}>
+                  Show all
+                </button>
+              )}
+              <span className="section-badge">{filteredUnsent.length} total</span>
+            </div>
           </div>
 
           {top5.length === 0 && (
             <div className="empty-state">
-              <p>No new leads to review. Check back later or manually add a lead.</p>
+              <p>No new leads to review. New leads will appear here automatically.</p>
             </div>
           )}
 
@@ -196,12 +444,13 @@ export default function Dashboard() {
               <LeadCard
                 key={lead.id}
                 lead={lead}
-                onUpdate={() => loadLeads(hotelId)}
+                hotelId={hotelId}
+                onUpdate={() => { loadLeads(hotelId); loadRejectedLeads(hotelId) }}
+                onDecline={declineLead}
               />
             ))}
           </div>
 
-          {/* Generate emails for the rest */}
           {remaining.length > 0 && !showRemaining && (
             <div className="generate-rest">
               <p>{remaining.length} more leads waiting</p>
@@ -227,13 +476,15 @@ export default function Dashboard() {
                   <LeadCard
                     key={lead.id}
                     lead={lead}
-                    onUpdate={() => loadLeads(hotelId)}
+                    hotelId={hotelId}
+                    onUpdate={() => { loadLeads(hotelId); loadRejectedLeads(hotelId) }}
+                    onDecline={declineLead}
                   />
                 ))}
               </div>
             </>
           )}
-        </section>
+        </section>}
       </div>
     </div>
   )

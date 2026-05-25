@@ -1,16 +1,30 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { supabase } from '../supabase'
 import {
   buildScoringSystemPrompt,
   buildScoringPrompt,
   buildReplyClassificationPrompt,
-  buildFollowUpPrompt
+  buildFollowUpPrompt,
+  buildRejectionPrompt
 } from './prompts'
+import { declineOnPlatform } from '../integrations'
 
-const anthropic = new Anthropic({
-  apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
-  dangerouslyAllowBrowser: true
-})
+const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+async function callClaude(fnName, body) {
+  const res = await fetch(`${FUNCTIONS_URL}/${fnName}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'apikey': ANON_KEY
+    },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok) throw new Error(`Edge function ${fnName} failed: ${await res.text()}`)
+  const data = await res.json()
+  return data.text
+}
 
 // =============================================
 // SCORE A LEAD + GENERATE INITIAL DRAFT
@@ -30,35 +44,33 @@ export async function scoreLead(lead, hotelId) {
     hotel_name: profile.hotels?.name
   }
 
-  // 2. Check availability for requested dates
+  // 2. Check hard rejection criteria BEFORE scoring
+  // These are non-negotiable — capacity exceeded, dates fully blocked, etc.
+  const hardRejection = checkHardRejections(lead, hotelProfile)
+  if (hardRejection) {
+    return await autoRejectLead(lead, hotelId, hotelProfile, hardRejection)
+  }
+
+  // 3. Check availability for requested dates
   const availabilityContext = await getAvailabilityContext(
     hotelId,
     lead.dates_requested
   )
 
-  // 3. Call Claude
+  // 4. Call Claude for scoring + draft email (via secure Edge Function)
   const systemPrompt = buildScoringSystemPrompt(hotelProfile)
   const userPrompt = buildScoringPrompt(lead, availabilityContext)
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userPrompt }]
-  })
-
-  // 4. Parse response
-  const raw = message.content[0].text
+  const raw = await callClaude('score-lead', { systemPrompt, userPrompt })
   let decision
   try {
-    // Strip markdown code fences if present
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
     decision = JSON.parse(cleaned)
   } catch {
     throw new Error(`Agent returned invalid JSON: ${raw}`)
   }
 
-  // 5. Store decision in Supabase
+  // 6. Store decision in Supabase
   const { data, error } = await supabase
     .from('lead_decisions')
     .upsert({
@@ -74,18 +86,158 @@ export async function scoreLead(lead, hotelId) {
 
   if (error) throw error
 
-  // 6. Mark lead as processed
+  // 7. Mark lead as processed
   await supabase
     .from('leads')
     .update({ status: 'processed' })
     .eq('id', lead.id)
 
-  // 7. Generate follow-up sequence (Day 3, 7, 14)
+  // 8. Generate follow-up sequence (Day 3, 7, 14)
   if (decision.score !== 'cold') {
     await scheduleFollowUps(lead, hotelId, hotelProfile, decision.draft_body)
   }
 
   return data
+}
+
+// =============================================
+// HARD REJECTION DETECTION
+// Checks non-negotiable criteria before scoring.
+// Returns a rejection reason string, or null if ok.
+// =============================================
+function checkHardRejections(lead, hotelProfile) {
+  const roomsRequested = lead.group_size ?? 0
+  const hotelCapacity = hotelProfile.room_count ?? 999
+  const hotelMinimum = hotelProfile.min_group_size ?? 0
+
+  // Group exceeds physical hotel capacity
+  if (roomsRequested > hotelCapacity) {
+    return `Group is requesting ${roomsRequested} rooms but the hotel's maximum capacity is ${hotelCapacity} rooms. This cannot be accommodated.`
+  }
+
+  // Group is below the hotel's minimum group size
+  if (hotelMinimum > 0 && roomsRequested > 0 && roomsRequested < hotelMinimum) {
+    return `Group size of ${roomsRequested} rooms is below the hotel's minimum group requirement of ${hotelMinimum} rooms.`
+  }
+
+  // Budget is less than 50% of minimum rate — too far off to work with
+  if (lead.budget_per_night && hotelProfile.rate_min) {
+    const budgetRatio = lead.budget_per_night / hotelProfile.rate_min
+    if (budgetRatio < 0.5) {
+      return `Requested budget of $${lead.budget_per_night}/night is significantly below the hotel's minimum rate of $${hotelProfile.rate_min}/night.`
+    }
+  }
+
+  return null // No hard rejection — proceed to scoring
+}
+
+// =============================================
+// AUTO-REJECT: generate decline email + save
+// =============================================
+async function autoRejectLead(lead, hotelId, hotelProfile, rejectionReason) {
+  // Generate a polite decline email via secure Edge Function
+  const prompt = buildRejectionPrompt(lead, rejectionReason, hotelProfile)
+  let email = { subject: 'Regarding Your Group Inquiry', body: 'Thank you for your inquiry. Unfortunately we are unable to accommodate your group at this time. We wish you the best with your event.' }
+  try {
+    const raw = await callClaude('generate-rejection', { prompt })
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    email = JSON.parse(cleaned)
+  } catch { /* use fallback */ }
+
+  // Save to lead_decisions as auto-rejected
+  const { data, error } = await supabase
+    .from('lead_decisions')
+    .upsert({
+      lead_id: lead.id,
+      hotel_id: hotelId,
+      score: null,
+      auto_rejected: true,
+      rejection_reason: rejectionReason,
+      rejection_draft_subject: email.subject,
+      rejection_draft_body: email.body
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+
+  // Mark lead as processed so it doesn't get re-scored
+  await supabase
+    .from('leads')
+    .update({ status: 'processed' })
+    .eq('id', lead.id)
+
+  return data
+}
+
+// =============================================
+// MANUAL DECLINE — rep clicks Decline on any lead
+// Generates decline email, notifies platform, archives
+// =============================================
+export async function declineLead(lead, hotelId) {
+  const { data: profile } = await supabase
+    .from('hotel_profiles')
+    .select('*, hotels(name)')
+    .eq('hotel_id', hotelId)
+    .single()
+
+  const hotelProfile = { ...profile, hotel_name: profile.hotels?.name }
+
+  // Check if a decline draft already exists (auto-rejected leads have one)
+  const { data: existing } = await supabase
+    .from('lead_decisions')
+    .select('rejection_draft_subject, rejection_draft_body')
+    .eq('lead_id', lead.id)
+    .single()
+
+  let subject = existing?.rejection_draft_subject
+  let body = existing?.rejection_draft_body
+
+  // If no decline draft yet, generate one now via secure Edge Function
+  if (!subject || !body) {
+    const reason = 'The sales team has decided to pass on this inquiry at this time.'
+    const prompt = buildRejectionPrompt(lead, reason, hotelProfile)
+    try {
+      const raw = await callClaude('generate-rejection', { prompt })
+      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      const email = JSON.parse(cleaned)
+      subject = email.subject
+      body = email.body
+    } catch { /* use defaults */ }
+  }
+
+  // Mark as declined
+  await supabase
+    .from('lead_decisions')
+    .update({
+      declined_at: new Date().toISOString(),
+      rejection_draft_subject: subject,
+      rejection_draft_body: body
+    })
+    .eq('lead_id', lead.id)
+
+  // Log the decline email in threads
+  await supabase.from('email_threads').insert({
+    lead_id: lead.id,
+    hotel_id: hotelId,
+    direction: 'outbound',
+    subject: subject,
+    body: body,
+    to_address: lead.contact_email
+  })
+
+  // Archive the lead
+  await supabase
+    .from('leads')
+    .update({ status: 'archived' })
+    .eq('id', lead.id)
+
+  // Notify through the originating platform (Delphi, Cvent, etc.)
+  try {
+    await declineOnPlatform(lead, hotelId)
+  } catch (err) {
+    console.warn('Platform decline notification failed (non-critical):', err)
+  }
 }
 
 // =============================================
@@ -107,15 +259,9 @@ export async function classifyReply(inboundEmail, leadId, hotelId) {
   const hotelProfile = { ...profile, hotel_name: profile.hotels?.name }
 
   const prompt = buildReplyClassificationPrompt(inboundEmail, lead, hotelProfile)
+  const systemPrompt = buildScoringSystemPrompt(hotelProfile)
 
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1024,
-    system: buildScoringSystemPrompt(hotelProfile),
-    messages: [{ role: 'user', content: prompt }]
-  })
-
-  const raw = message.content[0].text
+  const raw = await callClaude('score-lead', { systemPrompt, userPrompt: prompt })
   let result
   try {
     const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
@@ -159,13 +305,13 @@ async function scheduleFollowUps(lead, hotelId, hotelProfile, originalEmailBody)
   for (const seq of sequences) {
     const prompt = buildFollowUpPrompt(lead, seq.day, originalEmailBody, hotelProfile)
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }]
-    })
-
-    const raw = message.content[0].text
+    let raw
+    try {
+      raw = await callClaude('score-lead', { systemPrompt: '', userPrompt: prompt })
+    } catch (err) {
+      console.error('Follow-up generation failed, skipping day', seq.day, err)
+      continue
+    }
     let followUp
     try {
       const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()

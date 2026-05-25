@@ -22,7 +22,7 @@ export default function Login() {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-logo">
-          <h1>HotelPlanner</h1>
+          <h1>FuturesPlanning</h1>
           <p>Sales Intelligence Platform</p>
         </div>
         <form onSubmit={handleLogin} className="auth-form">
