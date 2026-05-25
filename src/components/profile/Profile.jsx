@@ -222,6 +222,10 @@ export default function Profile() {
       <NavBar hotelName={hotelForm.name} userName={userForm.full_name} />
 
       <div className="profile-content">
+        <button className="profile-back-btn" onClick={() => navigate('/dashboard')}>
+          ← Back to Dashboard
+        </button>
+
         <div className="profile-header">
           <div className="profile-avatar-large">
             {userForm.full_name
@@ -504,16 +508,13 @@ export default function Profile() {
             </div>
           )}
 
-          <div className="profile-actions">
-            <button className="btn-ghost" onClick={() => navigate('/dashboard')}>
-              ← Back to Dashboard
-            </button>
-            {activeTab !== 'connections' && (
+          {activeTab !== 'connections' && (
+            <div className="profile-actions">
               <button className="btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save Changes'}
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
