@@ -407,16 +407,16 @@ export default function Profile() {
             </div>
           )}
 
-          {activeTab !== 'connections' && (
-            <div className="profile-actions">
-              <button className="btn-ghost" onClick={() => navigate('/dashboard')}>
-                ← Back to Dashboard
-              </button>
+          <div className="profile-actions">
+            <button className="btn-ghost" onClick={() => navigate('/dashboard')}>
+              ← Back to Dashboard
+            </button>
+            {activeTab !== 'connections' && (
               <button className="btn-primary" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save Changes'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
