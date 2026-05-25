@@ -4,11 +4,11 @@
 
 :root {
   --color-bg: #0f1117;
-  --color-surface: #1a1d27;
-  --color-surface-2: #222636;
-  --color-border: #2d3149;
-  --color-text: #e8eaf0;
-  --color-text-muted: #7c8db5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f6fb;
+  --color-border: #e2e6f0;
+  --color-text: #0f1117;
+  --color-text-muted: #64748b;
   --color-primary: #4f7ef8;
   --color-primary-hover: #3d6be0;
   --color-hot: #ef4444;
@@ -17,7 +17,7 @@
   --color-green: #22c55e;
   --radius: 10px;
   --radius-sm: 6px;
-  --shadow: 0 2px 16px rgba(0,0,0,0.4);
+  --shadow: 0 2px 16px rgba(0,0,0,0.1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -253,6 +253,7 @@ body {
   background: var(--color-surface); border: 1px solid var(--color-border);
   border-radius: var(--radius); padding: 18px 20px;
   border-top: 3px solid transparent;
+  color: var(--color-text);
 }
 .stat-hot { border-top-color: var(--color-hot); }
 .stat-warm { border-top-color: var(--color-warm); }
@@ -266,27 +267,27 @@ body {
 .stat-clickable:hover {
   background: var(--color-surface-2);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
 }
 .stat-active {
   background: var(--color-surface-2);
   box-shadow: 0 0 0 2px var(--color-primary);
 }
 
-.stat-number { font-size: 32px; font-weight: 700; line-height: 1; }
-.stat-label { font-size: 14px; font-weight: 600; margin-top: 6px; }
+.stat-number { font-size: 32px; font-weight: 700; line-height: 1; color: var(--color-text); }
+.stat-label { font-size: 14px; font-weight: 600; margin-top: 6px; color: var(--color-text); }
 .stat-sub { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
 
 /* Tab bar */
 .briefing-tab-bar {
   display: flex; align-items: center; gap: 4px;
   max-width: 1200px; margin: 20px auto 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid #2d3149;
   padding-bottom: 0;
 }
 .briefing-tab {
   background: none; border: none;
-  color: var(--color-text-muted); font-size: 14px; font-weight: 500;
+  color: #7c8db5; font-size: 14px; font-weight: 500;
   padding: 10px 18px; cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -295,19 +296,19 @@ body {
   transition: color 0.15s;
   white-space: nowrap;
 }
-.briefing-tab:hover { color: var(--color-text); }
+.briefing-tab:hover { color: #e8eaf0; }
 .briefing-tab-active {
-  color: var(--color-text);
+  color: #e8eaf0;
   border-bottom-color: var(--color-primary);
-  background: rgba(79,126,248,0.06);
+  background: rgba(79,126,248,0.08);
 }
 .briefing-tab-seasonal.briefing-tab-active {
   border-bottom-color: #a855f7;
-  background: rgba(168,85,247,0.06);
+  background: rgba(168,85,247,0.08);
 }
 .briefing-tab-count {
-  background: var(--color-surface-2);
-  color: var(--color-text-muted);
+  background: #222636;
+  color: #7c8db5;
   font-size: 11px; font-weight: 700;
   padding: 1px 7px; border-radius: 999px;
   min-width: 20px; text-align: center;
@@ -370,8 +371,9 @@ body {
   border-radius: var(--radius); padding: 20px;
   display: flex; flex-direction: column; gap: 14px;
   border-left: 4px solid transparent; transition: box-shadow 0.15s;
+  color: var(--color-text);
 }
-.lead-card:hover { box-shadow: var(--shadow); }
+.lead-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
 .score-hot { border-left-color: var(--color-hot); }
 .score-warm { border-left-color: var(--color-warm); }
 .score-cold { border-left-color: var(--color-cold); }
@@ -567,10 +569,14 @@ body {
    Live Dashboard Header
    ============================================= */
 .dash-header {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  border-bottom: 1px solid #2d3149;
   padding: 24px 32px 0;
 }
+.dash-header h1 { color: #e8eaf0; }
+.dash-header .dash-summary { color: #7c8db5; }
+.dash-header .dash-hotel { color: #7c8db5; }
+.dash-header .dash-date { color: #7c8db5; }
 .dash-header-top {
   display: flex; align-items: flex-start; justify-content: space-between;
   max-width: 1200px; margin: 0 auto 20px;
