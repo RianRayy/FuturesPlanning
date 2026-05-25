@@ -26,6 +26,13 @@ const TONES = [
     icon: '✦',
     desc: 'Refined, elegant, aspirational',
     example: '"We would be honoured to curate an exceptional experience for your group, tailored to the highest standard of service."'
+  },
+  {
+    value: 'personal',
+    label: 'Personal',
+    icon: '🖊️',
+    desc: 'Mirrors your own writing style',
+    example: 'The agent reads your sent emails and writes in your voice — your words, your rhythm, your way.'
   }
 ]
 
@@ -38,6 +45,10 @@ export default function Profile() {
   const [hotelId, setHotelId] = useState(null)
   const [hasConnections, setHasConnections] = useState(true)
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') ?? 'profile')
+  const [emailSamples, setEmailSamples] = useState('')
+  const [analyzingTone, setAnalyzingTone] = useState(false)
+  const [toneAnalyzed, setToneAnalyzed] = useState(false)
+  const [hasEmailConnection, setHasEmailConnection] = useState(false)
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '' })
   const [hotelForm, setHotelForm] = useState({
@@ -103,9 +114,52 @@ export default function Profile() {
             s.charAt(0).toUpperCase() + s.slice(1)
           ) ?? []
         }))
+        if (profile.personal_tone_samples) setEmailSamples(profile.personal_tone_samples)
+        if (profile.personal_tone_summary) setToneAnalyzed(true)
       }
+
+      // Check if Gmail or Outlook is connected
+      const { data: emailConns } = await supabase
+        .from('crm_connections')
+        .select('provider')
+        .eq('hotel_id', hotelUser.hotel_id)
+        .in('provider', ['gmail', 'outlook'])
+      setHasEmailConnection((emailConns?.length ?? 0) > 0)
     }
     setLoading(false)
+  }
+
+  async function handleAnalyzeTone() {
+    if (!emailSamples.trim() && !hasEmailConnection) return
+    setAnalyzingTone(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-tone`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ hotelId, emailSamples })
+        }
+      )
+      if (res.ok) {
+        const { summary } = await res.json()
+        // Save summary to hotel_profiles
+        await supabase.from('hotel_profiles').upsert({
+          hotel_id: hotelId,
+          personal_tone_samples: emailSamples,
+          personal_tone_summary: summary
+        }, { onConflict: 'hotel_id' })
+        setToneAnalyzed(true)
+      }
+    } catch (err) {
+      console.error('Tone analysis error:', err)
+    }
+    setAnalyzingTone(false)
   }
 
   function toggleSegment(seg) {
@@ -150,7 +204,8 @@ export default function Profile() {
         fb_minimum: parseFloat(hotelForm.fb_minimum) || 0,
         hotel_description: hotelForm.hotel_description,
         tone_of_voice: hotelForm.tone_of_voice,
-        target_segments: hotelForm.target_segments.map(s => s.toLowerCase())
+        target_segments: hotelForm.target_segments.map(s => s.toLowerCase()),
+        personal_tone_samples: emailSamples || null
       })
 
     setSaving(false)
@@ -388,6 +443,48 @@ export default function Profile() {
                       </label>
                     ))}
                   </div>
+
+                  {/* Personal tone setup — shown when Personal is selected */}
+                  {hotelForm.tone_of_voice === 'personal' && (
+                    <div className="personal-tone-setup">
+                      <div className="personal-tone-header">
+                        <span className="personal-tone-title">Train your personal voice</span>
+                        {toneAnalyzed && <span className="personal-tone-badge">✓ Voice trained</span>}
+                      </div>
+
+                      {hasEmailConnection ? (
+                        <p className="personal-tone-desc">
+                          Gmail or Outlook is connected. Click below to let the agent read your recent sent emails and learn your style automatically.
+                        </p>
+                      ) : (
+                        <p className="personal-tone-desc">
+                          No email account connected yet. Paste a few emails you've written below so the agent can learn your style — or connect Gmail/Outlook in the Connections tab for automatic analysis.
+                        </p>
+                      )}
+
+                      <textarea
+                        className="personal-tone-textarea"
+                        rows={6}
+                        placeholder={'Paste 2–3 emails you\'ve written here...\n\n"Hi Sarah, thanks for reaching out about your conference — we\'d love to host your group..."\n\n"Hey John, just following up on your inquiry from last week..."'}
+                        value={emailSamples}
+                        onChange={e => { setEmailSamples(e.target.value); setToneAnalyzed(false) }}
+                      />
+
+                      <button
+                        className="btn-analyze-tone"
+                        onClick={handleAnalyzeTone}
+                        disabled={analyzingTone || (!emailSamples.trim() && !hasEmailConnection)}
+                      >
+                        {analyzingTone
+                          ? 'Analyzing your writing style...'
+                          : toneAnalyzed
+                            ? 'Re-analyze style'
+                            : hasEmailConnection
+                              ? 'Analyze my sent emails'
+                              : 'Analyze pasted emails'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

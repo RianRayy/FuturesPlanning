@@ -29,6 +29,11 @@ RESPONSE STYLE:
 - ${hotelProfile.tone_of_voice === 'luxury' ? 'Refined, elegant, and aspirational. Never mention price first.' : ''}
 - ${hotelProfile.tone_of_voice === 'warm' ? 'Friendly, personal, and welcoming. Use the contact\'s first name.' : ''}
 - ${hotelProfile.tone_of_voice === 'professional' ? 'Clear, confident, and business-focused. Get to the point.' : ''}
+- ${hotelProfile.tone_of_voice === 'personal' && hotelProfile.personal_tone_summary
+    ? `PERSONAL VOICE: Write in the exact style of this person. Style analysis:\n${hotelProfile.personal_tone_summary}`
+    : hotelProfile.tone_of_voice === 'personal'
+      ? 'Personal and authentic. Write as if the sales manager themselves is typing this.'
+      : ''}
 
 Always sign emails with: "The Sales Team at ${hotelProfile.hotel_name}"`
 }
