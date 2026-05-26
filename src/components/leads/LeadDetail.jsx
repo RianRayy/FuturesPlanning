@@ -118,8 +118,26 @@ export default function LeadDetail() {
   if (!lead) return <div className="loading-screen"><div className="loading-spinner" /></div>
 
   const SCORE_COLORS = { hot: '#ef4444', warm: '#f59e0b', cold: '#94a3b8' }
-  const score = decision?.score ?? 'cold'
+  const score   = decision?.score ?? 'cold'
   const isCvent = lead.source === 'cvent'
+  const budget  = lead.budget_per_night ?? null
+
+  // Inline bid rate state
+  const defaultRate = budget ? Math.round(budget * 0.9 / 5) * 5 : 0
+  const [bidRate, setBidRate] = useState(defaultRate)
+
+  function adjustRate(delta) {
+    setBidRate(r => Math.max(0, Math.round((r + delta) / 5) * 5))
+  }
+
+  function getWinProb(rate, bgt) {
+    if (!bgt || !rate) return null
+    if (rate > bgt)          return { label: 'Low',    color: '#ef4444', bg: 'rgba(239,68,68,0.1)',   note: `$${rate - bgt} over budget` }
+    if (rate > bgt * 0.92)   return { label: 'Medium', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  note: `$${bgt - rate}/night headroom` }
+    return                           { label: 'High',   color: '#10b981', bg: 'rgba(16,185,129,0.1)', note: `$${bgt - rate}/night below budget` }
+  }
+
+  const winProb = getWinProb(bidRate, budget)
 
   return (
     <div className="lead-detail">
@@ -176,6 +194,38 @@ export default function LeadDetail() {
             </div>
           )}
 
+          {/* Bid rate + win probability */}
+          {!sent && (
+            <div className="card-bid-section">
+              <div className="card-bid-row">
+                <span className="card-bid-label">Your Bid Rate</span>
+                {budget && <span className="card-bid-budget">Planner budget: ${budget}/night</span>}
+              </div>
+              <div className="card-bid-controls">
+                <button className="card-bid-btn" onClick={() => adjustRate(-5)}>−$5</button>
+                <div className="card-bid-display">
+                  <span className="card-bid-dollar">$</span>
+                  <input
+                    type="number"
+                    className="card-bid-input"
+                    value={bidRate}
+                    onChange={e => setBidRate(Math.max(0, Number(e.target.value)))}
+                    min={0}
+                  />
+                  <span className="card-bid-unit">/night</span>
+                </div>
+                <button className="card-bid-btn" onClick={() => adjustRate(5)}>+$5</button>
+              </div>
+              {winProb && (
+                <div className="card-win-prob" style={{ background: winProb.bg, borderColor: winProb.color }}>
+                  <span className="card-win-label" style={{ color: winProb.color }}>{winProb.label} Win Probability</span>
+                  <span className="card-win-note">{winProb.note}</span>
+                </div>
+              )}
+              {!budget && <p className="card-bid-no-budget">Budget not disclosed — enter your rate above</p>}
+            </div>
+          )}
+
           {lead.raw_content && (
             <div className="detail-raw">
               <label>Original Message</label>
@@ -225,6 +275,7 @@ export default function LeadDetail() {
                 className="btn-primary"
                 onClick={() => { setSendError(null); setShowModal(true) }}
                 disabled={sending}
+                title={bidRate > 0 ? `Bid rate: $${bidRate}/night` : ''}
               >
                 {sending ? 'Sending...' : 'Approve & Send'}
               </button>
