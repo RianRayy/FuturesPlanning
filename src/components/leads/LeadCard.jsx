@@ -30,6 +30,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const [sendError, setSendError] = useState(null)
   const [emailInput, setEmailInput] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
+  const [draftSubject, setDraftSubject] = useState(decision?.draft_subject ?? '')
+  const [draftBody, setDraftBody] = useState(decision?.draft_body ?? '')
 
   const decision = lead.lead_decisions
   const score = decision?.score ?? 'cold'
@@ -70,6 +72,12 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
     setSending(true)
     setSendError(null)
 
+    // Save any edits the user made in the modal back to the DB
+    await supabase
+      .from('lead_decisions')
+      .update({ draft_subject: draftSubject, draft_body: draftBody })
+      .eq('lead_id', lead.id)
+
     // No email on file — just mark as approved in the system, no Gmail send
     if (!hasValidEmail) {
       try {
@@ -100,8 +108,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
           lead_id:   lead.id,
           hotel_id:  hotelId,
           to:        lead.contact_email,
-          subject:   decision.draft_subject,
-          body:      decision.draft_body,
+          subject:   draftSubject,
+          body:      draftBody,
           // Bid advisor params — passed through to Cvent proposal if applicable
           bid_rate:  bidRate ?? null,
           bid_notes: bidNotes ?? null
@@ -272,9 +280,18 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
               )}
               <div className="send-confirm-field">
                 <span className="send-confirm-label">Subject</span>
-                <span className="send-confirm-value">{decision.draft_subject}</span>
+                <input
+                  className="send-confirm-input"
+                  value={draftSubject}
+                  onChange={e => setDraftSubject(e.target.value)}
+                />
               </div>
-              <div className="send-confirm-body">{decision.draft_body}</div>
+              <textarea
+                className="send-confirm-body send-confirm-body-edit"
+                value={draftBody}
+                onChange={e => setDraftBody(e.target.value)}
+                rows={10}
+              />
             </div>
 
             <div className="send-confirm-actions">

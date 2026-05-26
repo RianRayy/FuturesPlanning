@@ -782,6 +782,14 @@ body {
 .send-confirm-value {
   font-size: 13px; color: #a0b0d0;
 }
+.send-confirm-input {
+  flex: 1; background: #131825; border: 1px solid #2d3149;
+  border-radius: 6px; padding: 6px 10px;
+  font-size: 13px; color: #e2e8f0; outline: none;
+  transition: border-color 0.15s;
+}
+.send-confirm-input:focus { border-color: #4f7ef8; }
+
 .send-confirm-body {
   margin-top: 12px; padding: 12px;
   background: #131825; border-radius: 8px; border: 1px solid #2d3149;
@@ -789,6 +797,11 @@ body {
   max-height: 220px; overflow-y: auto;
   white-space: pre-wrap;
 }
+.send-confirm-body-edit {
+  width: 100%; resize: vertical; font-family: inherit;
+  color: #e2e8f0; outline: none; transition: border-color 0.15s;
+}
+.send-confirm-body-edit:focus { border-color: #4f7ef8; }
 .send-confirm-actions {
   display: flex; gap: 10px; justify-content: flex-end;
   padding: 16px 24px;
