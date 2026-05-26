@@ -17,10 +17,13 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const navigate = useNavigate()
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(!!lead.lead_decisions?.sent_at)
+  const [emailWasSent, setEmailWasSent] = useState(!!lead.lead_decisions?.sent_at)
   const [declining, setDeclining] = useState(false)
   const [declined, setDeclined] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [sendError, setSendError] = useState(null)
+  const [emailInput, setEmailInput] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
 
   const decision = lead.lead_decisions
   const score = decision?.score ?? 'cold'
@@ -44,10 +47,41 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
     setDeclining(false)
   }
 
+  async function handleSaveEmail() {
+    if (!emailInput || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)) return
+    setSavingEmail(true)
+    try {
+      await supabase.from('leads').update({ contact_email: emailInput }).eq('id', lead.id)
+      onUpdate?.()
+    } catch (err) {
+      console.error('Save email error:', err)
+    }
+    setSavingEmail(false)
+  }
+
   async function handleConfirmSend() {
     setShowConfirmModal(false)
     setSending(true)
     setSendError(null)
+
+    // No email on file — just mark as approved in the system, no Gmail send
+    if (!hasValidEmail) {
+      try {
+        await supabase
+          .from('lead_decisions')
+          .update({ approved_at: new Date().toISOString(), sent_at: new Date().toISOString() })
+          .eq('lead_id', lead.id)
+        setEmailWasSent(false)
+        setSent(true)
+        onUpdate?.()
+      } catch (err) {
+        setSendError(err.message)
+      }
+      setSending(false)
+      return
+    }
+
+    // Email on file — send via Gmail
     try {
       const res = await fetch(`${FUNCTIONS_URL}/gmail-send`, {
         method: 'POST',
@@ -68,6 +102,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error || 'Send failed')
 
+      setEmailWasSent(true)
       setSent(true)
       onUpdate?.()
     } catch (err) {
@@ -121,6 +156,30 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
             <p>{decision.reasoning}</p>
           </div>
         )}
+
+        {/* Inline email entry when no address on file */}
+        {!hasValidEmail && !sent && (
+          <div className="lead-email-missing">
+            <span className="lead-email-missing-label">⚠ No email on file</span>
+            <div className="lead-email-input-row">
+              <input
+                type="email"
+                className="lead-email-input"
+                placeholder="Enter email address..."
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSaveEmail()}
+              />
+              <button
+                className="btn-ghost btn-sm"
+                onClick={handleSaveEmail}
+                disabled={savingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)}
+              >
+                {savingEmail ? '...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="lead-card-actions">
@@ -145,14 +204,15 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
             <button
               className="btn-primary btn-send"
               onClick={() => { setSendError(null); setShowConfirmModal(true) }}
-              disabled={sending || !decision?.draft_body || !hasValidEmail}
-              title={!hasValidEmail ? 'No valid email address for this contact' : undefined}
+              disabled={sending || !decision?.draft_body}
             >
               {sending ? 'Sending...' : 'Approve & Send'}
             </button>
           </>
         ) : (
-          <div className="sent-badge">Email sent ✓</div>
+          <div className="sent-badge">
+            {emailWasSent ? 'Email sent ✓' : 'Approved ✓'}
+          </div>
         )}
       </div>
 
@@ -167,15 +227,28 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
         <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
           <div className="send-confirm-modal" onClick={e => e.stopPropagation()}>
             <div className="send-confirm-header">
-              <h3>Send this email?</h3>
-              <p>This will be sent from your Gmail to <strong>{lead.contact_email}</strong></p>
+              {hasValidEmail ? (
+                <>
+                  <h3>Send this email?</h3>
+                  <p>This will be sent from your Gmail to <strong>{lead.contact_email}</strong></p>
+                </>
+              ) : (
+                <>
+                  <h3>Approve without sending?</h3>
+                  <p className="send-confirm-no-email-warn">
+                    ⚠ No email address on file — the lead will be marked as approved but <strong>no email will be sent</strong>.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="send-confirm-email">
-              <div className="send-confirm-field">
-                <span className="send-confirm-label">To</span>
-                <span className="send-confirm-value">{lead.contact_email}</span>
-              </div>
+              {hasValidEmail && (
+                <div className="send-confirm-field">
+                  <span className="send-confirm-label">To</span>
+                  <span className="send-confirm-value">{lead.contact_email}</span>
+                </div>
+              )}
               <div className="send-confirm-field">
                 <span className="send-confirm-label">Subject</span>
                 <span className="send-confirm-value">{decision.draft_subject}</span>
@@ -188,7 +261,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
                 Cancel
               </button>
               <button className="btn-primary" onClick={handleConfirmSend}>
-                Send Email
+                {hasValidEmail ? 'Send Email' : 'Approve Anyway'}
               </button>
             </div>
           </div>

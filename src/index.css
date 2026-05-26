@@ -535,6 +535,39 @@ body {
 .btn-decline-sm:hover { background: rgba(239,68,68,0.1); }
 .btn-decline-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Inline email entry on lead card */
+.lead-email-missing {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 8px;
+}
+.lead-email-missing-label {
+  display: block;
+  font-size: 11px; font-weight: 600; color: #f59e0b;
+  margin-bottom: 8px; letter-spacing: 0.03em;
+}
+.lead-email-input-row {
+  display: flex; gap: 6px;
+}
+.lead-email-input {
+  flex: 1;
+  background: #131825; border: 1px solid #2d3149;
+  border-radius: 6px; padding: 6px 10px;
+  font-size: 13px; color: #e8eaf0;
+  outline: none;
+}
+.lead-email-input:focus { border-color: var(--color-primary); }
+.lead-email-input::placeholder { color: #4d5580; }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+/* No-email warning in send modal */
+.send-confirm-no-email-warn {
+  font-size: 13px; color: #f59e0b; margin: 0;
+}
+.send-confirm-no-email-warn strong { color: #fbbf24; }
+
 /* Send confirmation modal */
 .send-confirm-modal {
   background: #1e2235;
