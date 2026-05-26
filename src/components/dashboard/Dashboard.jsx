@@ -365,26 +365,26 @@ export default function Dashboard() {
       />
 
       <div className="dashboard-content">
-        {/* CURRENT TAB — replies + follow-ups */}
-        {activeTab === 'current' && (
-          <>
-            {replyDrafts.length > 0 && activeFilter !== 'followups' && (
-              <div id="replies-section">
-                <ReplySection
-                  replyDrafts={replyDrafts}
-                  onUpdate={() => loadReplyDrafts(hotelId)}
-                />
+        {/* CURRENT TAB — replies section (only when filter is 'replies' or no filter) */}
+        {activeTab === 'current' && (activeFilter === 'replies' || activeFilter === null) && (
+          replyDrafts.length > 0
+            ? <div id="replies-section">
+                <ReplySection replyDrafts={replyDrafts} onUpdate={() => loadReplyDrafts(hotelId)} />
               </div>
-            )}
-            {followUps.length > 0 && activeFilter !== 'replies' && (
-              <div id="followups-section">
-                <FollowUpSection
-                  followUps={followUps}
-                  onUpdate={() => loadFollowUps(hotelId)}
-                />
+            : activeFilter === 'replies'
+              ? <div className="empty-state"><p>You're all caught up — no replies waiting right now.</p></div>
+              : null
+        )}
+
+        {/* CURRENT TAB — follow-ups section (only when filter is 'followups' or no filter) */}
+        {activeTab === 'current' && (activeFilter === 'followups' || activeFilter === null) && (
+          followUps.length > 0
+            ? <div id="followups-section">
+                <FollowUpSection followUps={followUps} onUpdate={() => loadFollowUps(hotelId)} />
               </div>
-            )}
-          </>
+            : activeFilter === 'followups'
+              ? <div className="empty-state"><p>Nothing due today — you're ahead of the game.</p></div>
+              : null
         )}
 
         {/* REJECTED TAB */}
@@ -395,7 +395,7 @@ export default function Dashboard() {
                 onUpdate={() => loadRejectedLeads(hotelId)}
               />
             : <div className="empty-state">
-                <p>No rejected leads right now. Groups that exceed capacity or don't meet criteria will appear here automatically.</p>
+                <p>Nothing here to tackle — no groups have been flagged for rejection.</p>
               </div>
         )}
 
@@ -409,10 +409,11 @@ export default function Dashboard() {
                 onUpdate={() => loadSeasonalOutreach(hotelId)}
               />
             : <div className="empty-state">
-                <p>No recruiting opportunities right now. Check back as you approach past booking windows.</p>
+                <p>Nothing here yet — check back as past booking windows come around.</p>
               </div>
         )}
 
+        {/* LEADS — only show on current tab when not filtering by replies/followups */}
         {activeTab === 'current' && activeFilter !== 'replies' && activeFilter !== 'followups' && <section className="leads-section" id="leads-section">
           <div className="section-header">
             <div>
@@ -435,7 +436,11 @@ export default function Dashboard() {
 
           {top5.length === 0 && (
             <div className="empty-state">
-              <p>No new leads to review. New leads will appear here automatically.</p>
+              <p>
+                {activeFilter === 'hot'  ? 'No hot leads right now — check back soon.' :
+                 activeFilter === 'warm' ? 'No warm leads at the moment. Onto the next.' :
+                 'No new leads to review. New leads will appear here automatically.'}
+              </p>
             </div>
           )}
 
