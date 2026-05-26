@@ -536,6 +536,71 @@ body {
 .btn-decline-sm:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Inline email entry on lead card */
+/* ── Inline bid rate + win probability on card ── */
+.card-bid-section {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(79,126,248,0.06);
+  border: 1px solid rgba(79,126,248,0.18);
+  border-radius: 10px;
+}
+.card-bid-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.card-bid-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #7c8db5;
+}
+.card-bid-budget {
+  font-size: 11px; color: #7c8db5;
+}
+.card-bid-controls {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.card-bid-btn {
+  background: rgba(79,126,248,0.12); border: 1px solid rgba(79,126,248,0.25);
+  color: #4f7ef8; border-radius: 6px; padding: 4px 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+}
+.card-bid-btn:hover { background: rgba(79,126,248,0.22); }
+.card-bid-display {
+  display: flex; align-items: center; gap: 2px;
+  background: #1a1d2e; border: 1px solid #2d3149;
+  border-radius: 8px; padding: 4px 10px; flex: 1;
+}
+.card-bid-dollar { color: #7c8db5; font-size: 14px; }
+.card-bid-input {
+  background: none; border: none; outline: none;
+  color: #e2e8f0; font-size: 18px; font-weight: 700;
+  width: 60px; text-align: center;
+}
+.card-bid-input::-webkit-inner-spin-button,
+.card-bid-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.card-bid-unit { color: #7c8db5; font-size: 12px; }
+.card-win-prob {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 8px; border: 1px solid;
+}
+.card-win-label {
+  font-size: 12px; font-weight: 700;
+}
+.card-win-note {
+  font-size: 12px; color: #a0b0d0; flex: 1;
+}
+.card-bid-advisor-link {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: #4f7ef8; text-decoration: underline;
+  white-space: nowrap; padding: 0;
+}
+.card-bid-no-budget {
+  font-size: 12px; color: #7c8db5; margin-top: 6px;
+}
+.send-confirm-rate {
+  color: #4f7ef8; font-weight: 600;
+}
+
+/* ── Lead email missing ── */
 .lead-email-missing {
   margin-top: 12px;
   padding: 10px 12px;
