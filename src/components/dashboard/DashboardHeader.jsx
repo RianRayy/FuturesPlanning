@@ -22,7 +22,8 @@ export default function DashboardHeader({
   seasonalFilter,
   onStatClick,
   onScrollTo,
-  processing
+  processing,
+  newAlerts = {}
 }) {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -65,6 +66,7 @@ export default function DashboardHeader({
             className={`stat-card stat-hot stat-clickable ${activeFilter === 'hot' ? 'stat-active' : ''}`}
             onClick={() => onStatClick?.('hot')}
           >
+            {newAlerts.hot && <span className="stat-alert-dot" title="New hot leads" />}
             <div className="stat-number">{hotCount}</div>
             <div className="stat-label">Hot Leads</div>
             <div className="stat-sub">Emails ready to send</div>
@@ -73,6 +75,7 @@ export default function DashboardHeader({
             className={`stat-card stat-warm stat-clickable ${activeFilter === 'warm' ? 'stat-active' : ''}`}
             onClick={() => onStatClick?.('warm')}
           >
+            {newAlerts.warm && <span className="stat-alert-dot" title="New warm leads" />}
             <div className="stat-number">{warmCount}</div>
             <div className="stat-label">Warm Leads</div>
             <div className="stat-sub">Worth a closer look</div>
@@ -81,6 +84,7 @@ export default function DashboardHeader({
             className={`stat-card stat-replies stat-clickable ${activeFilter === 'replies' ? 'stat-active' : ''}`}
             onClick={() => onStatClick?.('replies')}
           >
+            {newAlerts.replies && <span className="stat-alert-dot" title="New replies" />}
             <div className="stat-number">{pendingReplies}</div>
             <div className="stat-label">Replies Received</div>
             <div className="stat-sub">Responses drafted</div>
@@ -89,6 +93,7 @@ export default function DashboardHeader({
             className={`stat-card stat-followups stat-clickable ${activeFilter === 'followups' ? 'stat-active' : ''}`}
             onClick={() => onStatClick?.('followups')}
           >
+            {newAlerts.followups && <span className="stat-alert-dot" title="New follow-ups" />}
             <div className="stat-number">{dueFollowUps}</div>
             <div className="stat-label">Follow-ups Due</div>
             <div className="stat-sub">Due today</div>

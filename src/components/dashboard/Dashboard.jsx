@@ -33,12 +33,26 @@ export default function Dashboard() {
   const [showConnectModal, setShowConnectModal] = useState(false)
   const [hasConnections, setHasConnections] = useState(true)
   const [userId, setUserId] = useState(null)
+  const [newAlerts, setNewAlerts] = useState({ hot: false, warm: false, replies: false, followups: false })
   const prevTop5Ref = useRef([])
   const hotelIdRef = useRef(null)
 
   useEffect(() => {
     loadDashboard()
   }, [])
+
+  // Scroll to relevant section whenever activeFilter changes
+  useEffect(() => {
+    if (activeFilter === null) return
+    const sectionId =
+      activeFilter === 'replies'   ? 'replies-section'   :
+      activeFilter === 'followups' ? 'followups-section' :
+      'leads-section'
+    const el = document.getElementById(sectionId)
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    }
+  }, [activeFilter])
 
   async function loadDashboard() {
     setLoading(true)
@@ -123,7 +137,10 @@ export default function Dashboard() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'reply_drafts', filter: `hotel_id=eq.${hid}` },
         async () => {
-          await loadReplyDrafts(hid)
+          const currentHid = hotelIdRef.current
+          if (!currentHid) return
+          await loadReplyDrafts(currentHid)
+          setNewAlerts(prev => ({ ...prev, replies: true }))
           pushNotification('reply', 'New reply received', 'A lead has replied — response draft is ready.')
         }
       )
@@ -167,6 +184,15 @@ export default function Dashboard() {
           `${scoreLabel} lead entered your Top 5`,
           `${names} just moved up${bumped.length > 0 ? ' — ranking adjusted' : ''}`
         )
+
+        // Light up alert dots on the relevant stat cards
+        const hasNewHot  = newEntrants.some(l => l.lead_decisions?.score === 'hot')
+        const hasNewWarm = newEntrants.some(l => l.lead_decisions?.score === 'warm')
+        setNewAlerts(prev => ({
+          ...prev,
+          ...(hasNewHot  ? { hot:  true } : {}),
+          ...(hasNewWarm ? { warm: true } : {})
+        }))
       }
     }
 
@@ -181,6 +207,8 @@ export default function Dashboard() {
       await loadLeads(hid)
     } catch (err) {
       console.error('Lead processing error:', err)
+      setToast({ title: 'Agent error', body: 'Some leads could not be scored right now. They will retry on next refresh.' })
+      setTimeout(() => setToast(null), 6000)
     }
     setProcessing(false)
   }
@@ -277,6 +305,10 @@ export default function Dashboard() {
   function handleStatClick(filter) {
     if (activeTab === 'current') {
       setActiveFilter(prev => prev === filter ? null : filter)
+      // Clear the alert dot for the card the user just clicked
+      if (filter && filter in newAlerts) {
+        setNewAlerts(prev => ({ ...prev, [filter]: false }))
+      }
     } else if (activeTab === 'recruiting') {
       setSeasonalFilter(prev => prev === filter ? null : filter)
     }
@@ -362,6 +394,7 @@ export default function Dashboard() {
         onStatClick={handleStatClick}
         onScrollTo={handleScrollTo}
         processing={processing}
+        newAlerts={newAlerts}
       />
 
       <div className="dashboard-content">

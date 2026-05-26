@@ -359,6 +359,22 @@ body {
   border-radius: var(--radius); padding: 18px 20px;
   border-top: 3px solid transparent;
   color: var(--color-text);
+  position: relative;
+}
+.stat-alert-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 10px;
+  height: 10px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid #1a1d27;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
 }
 .stat-hot { border-top-color: var(--color-hot); }
 .stat-warm { border-top-color: var(--color-warm); }

@@ -307,7 +307,7 @@ async function scheduleFollowUps(lead, hotelId, hotelProfile, originalEmailBody)
 
     let raw
     try {
-      raw = await callClaude('score-lead', { systemPrompt: '', userPrompt: prompt })
+      raw = await callClaude('score-lead', { systemPrompt: buildScoringSystemPrompt(hotelProfile), userPrompt: prompt })
     } catch (err) {
       console.error('Follow-up generation failed, skipping day', seq.day, err)
       continue

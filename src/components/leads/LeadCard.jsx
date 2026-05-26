@@ -21,6 +21,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const score = decision?.score ?? 'cold'
   const config = SCORE_CONFIG[score]
   const platform = PLATFORM_CONFIG[lead.source] ?? PLATFORM_CONFIG.email
+  const hasValidEmail = lead.contact_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.contact_email)
 
   const checkIn = lead.dates_requested?.check_in
   const checkOut = lead.dates_requested?.check_out
@@ -137,7 +138,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
             <button
               className="btn-primary btn-send"
               onClick={handleApproveAndSend}
-              disabled={sending || !decision?.draft_body}
+              disabled={sending || !decision?.draft_body || !hasValidEmail}
+              title={!hasValidEmail ? 'No valid email address for this contact' : undefined}
             >
               {sending ? 'Sending...' : 'Approve & Send'}
             </button>

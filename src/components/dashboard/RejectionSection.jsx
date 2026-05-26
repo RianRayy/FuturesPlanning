@@ -61,7 +61,11 @@ export default function RejectionSection({ rejectedLeads, onUpdate }) {
   }
 
   async function handleDismiss(item) {
-    // Dismiss without sending — just archive
+    // Dismiss without sending — mark declined so it never resurfaces, then archive
+    await supabase
+      .from('lead_decisions')
+      .update({ declined_at: new Date().toISOString() })
+      .eq('lead_id', item.id)
     await supabase
       .from('leads')
       .update({ status: 'archived' })
