@@ -8,6 +8,11 @@ import BidAdvisorModal from './BidAdvisorModal'
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
 const ANON_KEY      = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// Platforms that use formal bid/proposal submissions —
+// these get the full Bid Advisor modal instead of the simple email confirm.
+// Add 'hotelplanner' here once their API is live.
+const BID_ADVISOR_PLATFORMS = ['cvent']
+
 const SCORE_CONFIG = {
   hot: { label: 'Hot', className: 'score-hot', emoji: '🔴' },
   warm: { label: 'Warm', className: 'score-warm', emoji: '🟡' },

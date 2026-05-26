@@ -9,8 +9,64 @@ const WIN_CONFIG = {
   low:    { label: 'Low',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  }
 }
 
-const IMPACT_ICON = { positive: '↑', negative: '↓', neutral: '→' }
+const IMPACT_ICON  = { positive: '↑', negative: '↓', neutral: '→' }
 const IMPACT_COLOR = { positive: '#10b981', negative: '#ef4444', neutral: '#7c8db5' }
+
+// Recalculate win probability in real time as the user adjusts the rate
+function computeWinProbability(currentRate, suggestion) {
+  if (!suggestion || currentRate === null) return null
+
+  const { rate_range, lead_budget, suggested_rate } = suggestion
+
+  // Above planner's stated budget — very hard to win
+  if (lead_budget && currentRate > lead_budget) {
+    return {
+      prob: 'low',
+      note: `Rate is above the planner's stated budget of $${lead_budget}/night — very unlikely to win`
+    }
+  }
+
+  // Significantly above market high — nearly impossible
+  if (currentRate > rate_range.high + 20) {
+    return {
+      prob: 'low',
+      note: `$${currentRate - rate_range.high} above the top of market range — consider lowering to stay competitive`
+    }
+  }
+
+  // Above market high but not extreme — still low
+  if (currentRate > rate_range.high) {
+    return {
+      prob: 'low',
+      note: `Slightly above typical market range — competitors may undercut at this price`
+    }
+  }
+
+  // Between suggested and market high — medium
+  if (currentRate > suggested_rate) {
+    const over = currentRate - suggested_rate
+    return {
+      prob: 'medium',
+      note: `$${over}/night above suggested — competitive but may lose to a lower bid`
+    }
+  }
+
+  // At or within $10 of suggested — high
+  if (currentRate >= suggested_rate - 10) {
+    const headroom = lead_budget ? `$${lead_budget - currentRate}/night below planner budget` : 'well-positioned'
+    return {
+      prob: 'high',
+      note: `Strong position — ${headroom}`
+    }
+  }
+
+  // Well below suggested — high but flag it
+  const under = suggested_rate - currentRate
+  return {
+    prob: 'high',
+    note: `$${under}/night below suggested — excellent win chance, though you may be leaving revenue on the table`
+  }
+}
 
 export default function BidAdvisorModal({ lead, decision, hotelId, onConfirm, onCancel, sending }) {
   const [loading, setLoading]       = useState(true)
@@ -50,18 +106,9 @@ export default function BidAdvisorModal({ lead, decision, hotelId, onConfirm, on
     setRate(r => Math.max(0, Math.round((r + delta) / 5) * 5))
   }
 
-  const winCfg = WIN_CONFIG[suggestion?.win_probability] ?? WIN_CONFIG.medium
-
-  // How the user's chosen rate compares to the suggestion
-  function getRateStatus() {
-    if (!suggestion) return null
-    const diff = rate - suggestion.suggested_rate
-    if (Math.abs(diff) <= 5) return null
-    if (diff > 0) return { label: `$${diff} above suggested — may reduce win chance`, color: '#f59e0b' }
-    return { label: `$${Math.abs(diff)} below suggested — strong competitive position`, color: '#10b981' }
-  }
-
-  const rateStatus = getRateStatus()
+  // Recomputes live as rate changes
+  const liveWin = computeWinProbability(rate, suggestion)
+  const winCfg  = WIN_CONFIG[liveWin?.prob ?? suggestion?.win_probability ?? 'medium']
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -110,12 +157,6 @@ export default function BidAdvisorModal({ lead, decision, hotelId, onConfirm, on
                   <button className="bid-rate-btn" onClick={() => adjustRate(5)}>+$5</button>
                 </div>
 
-                {rateStatus && (
-                  <div className="bid-rate-status" style={{ color: rateStatus.color }}>
-                    {rateStatus.label}
-                  </div>
-                )}
-
                 {suggestion && (
                   <div className="bid-rate-range">
                     <span>Market range for this group: </span>
@@ -129,13 +170,15 @@ export default function BidAdvisorModal({ lead, decision, hotelId, onConfirm, on
                 )}
               </div>
 
-              {/* Win probability */}
-              {suggestion && (
+              {/* Win probability — updates live as rate changes */}
+              {(liveWin || suggestion) && (
                 <div className="bid-win-row" style={{ background: winCfg.bg, borderColor: winCfg.color }}>
                   <div className="bid-win-badge" style={{ color: winCfg.color }}>
                     {winCfg.label} Win Probability
                   </div>
-                  <div className="bid-win-note">{suggestion.probability_note}</div>
+                  <div className="bid-win-note">
+                    {liveWin?.note ?? suggestion?.probability_note}
+                  </div>
                 </div>
               )}
 
