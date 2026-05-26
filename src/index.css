@@ -255,6 +255,28 @@ body {
 .auth-footer { text-align: center; color: var(--color-text-muted); font-size: 13px; margin-top: 20px; }
 .auth-footer a { color: var(--color-primary); text-decoration: none; }
 
+.auth-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.auth-forgot-link {
+  background: none; border: none;
+  color: var(--color-primary); font-size: 12px;
+  cursor: pointer; padding: 0;
+  transition: opacity 0.15s;
+}
+.auth-forgot-link:hover { opacity: 0.75; }
+
+.forgot-panel {
+  background: rgba(79,126,248,0.06);
+  border: 1px solid rgba(79,126,248,0.2);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.forgot-desc { font-size: 13px; color: var(--color-text-muted); }
+.reset-sent { font-size: 13px; color: #22c55e; }
+.reset-sent strong { color: #4ade80; }
+
 /* =============================================
    Forms
    ============================================= */
