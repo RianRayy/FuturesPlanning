@@ -534,6 +534,61 @@ body {
 }
 .btn-decline-sm:hover { background: rgba(239,68,68,0.1); }
 .btn-decline-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Send confirmation modal */
+.send-confirm-modal {
+  background: #1e2235;
+  border: 1px solid #2d3149;
+  border-radius: 14px;
+  width: 100%; max-width: 560px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  overflow: hidden;
+}
+.send-confirm-header {
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #2d3149;
+}
+.send-confirm-header h3 {
+  font-size: 18px; font-weight: 700; color: #e8eaf0; margin: 0 0 6px;
+}
+.send-confirm-header p {
+  font-size: 13px; color: #7c8db5; margin: 0;
+}
+.send-confirm-header p strong { color: #a0b0d0; }
+.send-confirm-email {
+  padding: 16px 24px;
+  border-bottom: 1px solid #2d3149;
+}
+.send-confirm-field {
+  display: flex; gap: 12px; align-items: baseline;
+  margin-bottom: 8px;
+}
+.send-confirm-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  color: #7c8db5; letter-spacing: 0.06em; flex-shrink: 0; width: 52px;
+}
+.send-confirm-value {
+  font-size: 13px; color: #a0b0d0;
+}
+.send-confirm-body {
+  margin-top: 12px; padding: 12px;
+  background: #131825; border-radius: 8px; border: 1px solid #2d3149;
+  font-size: 13px; color: #a0b0d0; line-height: 1.6;
+  max-height: 220px; overflow-y: auto;
+  white-space: pre-wrap;
+}
+.send-confirm-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 16px 24px;
+}
+
+/* Error banner below lead card actions */
+.send-error-banner {
+  margin-top: 10px; padding: 10px 14px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px; font-size: 13px; color: #fca5a5;
+}
+
 .generate-rest {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--color-surface); border: 1px dashed var(--color-border);

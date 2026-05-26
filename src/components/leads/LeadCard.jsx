@@ -4,6 +4,9 @@ import { supabase } from '../../supabase'
 import { format } from 'date-fns'
 import { PLATFORM_CONFIG } from '../../integrations'
 
+const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
+const ANON_KEY      = import.meta.env.VITE_SUPABASE_ANON_KEY
+
 const SCORE_CONFIG = {
   hot: { label: 'Hot', className: 'score-hot', emoji: '🔴' },
   warm: { label: 'Warm', className: 'score-warm', emoji: '🟡' },
@@ -16,6 +19,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const [sent, setSent] = useState(!!lead.lead_decisions?.sent_at)
   const [declining, setDeclining] = useState(false)
   const [declined, setDeclined] = useState(false)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [sendError, setSendError] = useState(null)
 
   const decision = lead.lead_decisions
   const score = decision?.score ?? 'cold'
@@ -39,33 +44,35 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
     setDeclining(false)
   }
 
-  async function handleApproveAndSend() {
+  async function handleConfirmSend() {
+    setShowConfirmModal(false)
     setSending(true)
+    setSendError(null)
     try {
-      // Mark as approved and sent in the database
-      // In production this would trigger the SendGrid send via API
-      await supabase
-        .from('lead_decisions')
-        .update({
-          approved_at: new Date().toISOString(),
-          sent_at: new Date().toISOString()
+      const res = await fetch(`${FUNCTIONS_URL}/gmail-send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'apikey': ANON_KEY
+        },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          hotel_id: hotelId,
+          to: lead.contact_email,
+          subject: decision.draft_subject,
+          body: decision.draft_body
         })
-        .eq('lead_id', lead.id)
-
-      // Log in email_threads
-      await supabase.from('email_threads').insert({
-        lead_id: lead.id,
-        hotel_id: lead.hotel_id,
-        direction: 'outbound',
-        subject: decision.draft_subject,
-        body: decision.draft_body,
-        to_address: lead.contact_email
       })
+
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Send failed')
 
       setSent(true)
       onUpdate?.()
     } catch (err) {
       console.error('Send error:', err)
+      setSendError(err.message)
     }
     setSending(false)
   }
@@ -137,7 +144,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
             </button>
             <button
               className="btn-primary btn-send"
-              onClick={handleApproveAndSend}
+              onClick={() => { setSendError(null); setShowConfirmModal(true) }}
               disabled={sending || !decision?.draft_body || !hasValidEmail}
               title={!hasValidEmail ? 'No valid email address for this contact' : undefined}
             >
@@ -148,6 +155,45 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
           <div className="sent-badge">Email sent ✓</div>
         )}
       </div>
+
+      {sendError && (
+        <div className="send-error-banner">
+          ⚠ {sendError}
+        </div>
+      )}
+
+      {/* Send confirmation modal */}
+      {showConfirmModal && (
+        <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
+          <div className="send-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="send-confirm-header">
+              <h3>Send this email?</h3>
+              <p>This will be sent from your Gmail to <strong>{lead.contact_email}</strong></p>
+            </div>
+
+            <div className="send-confirm-email">
+              <div className="send-confirm-field">
+                <span className="send-confirm-label">To</span>
+                <span className="send-confirm-value">{lead.contact_email}</span>
+              </div>
+              <div className="send-confirm-field">
+                <span className="send-confirm-label">Subject</span>
+                <span className="send-confirm-value">{decision.draft_subject}</span>
+              </div>
+              <div className="send-confirm-body">{decision.draft_body}</div>
+            </div>
+
+            <div className="send-confirm-actions">
+              <button className="btn-ghost" onClick={() => setShowConfirmModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={handleConfirmSend}>
+                Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
