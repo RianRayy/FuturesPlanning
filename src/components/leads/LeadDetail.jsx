@@ -2,21 +2,26 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabase'
 import { format } from 'date-fns'
+import BidAdvisorModal from './BidAdvisorModal'
+
+const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
+const ANON_KEY      = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export default function LeadDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [lead, setLead] = useState(null)
-  const [decision, setDecision] = useState(null)
-  const [emailBody, setEmailBody] = useState('')
+  const [lead, setLead]               = useState(null)
+  const [decision, setDecision]       = useState(null)
+  const [emailBody, setEmailBody]     = useState('')
   const [emailSubject, setEmailSubject] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [saving, setSaving]           = useState(false)
+  const [sending, setSending]         = useState(false)
+  const [sent, setSent]               = useState(false)
+  const [emailWasSent, setEmailWasSent] = useState(false)
+  const [showModal, setShowModal]     = useState(false)
+  const [sendError, setSendError]     = useState(null)
 
-  useEffect(() => {
-    loadLead()
-  }, [id])
+  useEffect(() => { loadLead() }, [id])
 
   async function loadLead() {
     const { data } = await supabase
@@ -31,6 +36,7 @@ export default function LeadDetail() {
       setEmailBody(data.lead_decisions?.draft_body ?? '')
       setEmailSubject(data.lead_decisions?.draft_subject ?? '')
       setSent(!!data.lead_decisions?.sent_at)
+      setEmailWasSent(!!data.lead_decisions?.sent_at)
     }
   }
 
@@ -43,28 +49,69 @@ export default function LeadDetail() {
     setSaving(false)
   }
 
-  async function handleApproveAndSend() {
+  const hasValidEmail = lead?.contact_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.contact_email)
+
+  async function handleConfirmSend({ bidRate, bidNotes } = {}) {
+    setShowModal(false)
     setSending(true)
-    await supabase
-      .from('lead_decisions')
-      .update({
-        draft_body: emailBody,
-        draft_subject: emailSubject,
-        approved_at: new Date().toISOString(),
-        sent_at: new Date().toISOString()
+    setSendError(null)
+
+    // No email on file — mark approved only, no Gmail call
+    if (!hasValidEmail) {
+      try {
+        await supabase
+          .from('lead_decisions')
+          .update({
+            draft_body:    emailBody,
+            draft_subject: emailSubject,
+            approved_at:   new Date().toISOString(),
+            sent_at:       new Date().toISOString()
+          })
+          .eq('lead_id', id)
+        setEmailWasSent(false)
+        setSent(true)
+      } catch (err) {
+        setSendError(err.message)
+      }
+      setSending(false)
+      return
+    }
+
+    // Email on file — send via Gmail Edge Function
+    try {
+      // Save latest edits first
+      await supabase
+        .from('lead_decisions')
+        .update({ draft_body: emailBody, draft_subject: emailSubject })
+        .eq('lead_id', id)
+
+      const res = await fetch(`${FUNCTIONS_URL}/gmail-send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'apikey':        ANON_KEY
+        },
+        body: JSON.stringify({
+          lead_id:   id,
+          hotel_id:  lead.hotel_id,
+          to:        lead.contact_email,
+          subject:   emailSubject,
+          body:      emailBody,
+          bid_rate:  bidRate  ?? null,
+          bid_notes: bidNotes ?? null
+        })
       })
-      .eq('lead_id', id)
 
-    await supabase.from('email_threads').insert({
-      lead_id: id,
-      hotel_id: lead.hotel_id,
-      direction: 'outbound',
-      subject: emailSubject,
-      body: emailBody,
-      to_address: lead.contact_email
-    })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Send failed')
 
-    setSent(true)
+      setEmailWasSent(true)
+      setSent(true)
+    } catch (err) {
+      console.error('Send error:', err)
+      setSendError(err.message)
+    }
     setSending(false)
   }
 
@@ -72,6 +119,7 @@ export default function LeadDetail() {
 
   const SCORE_COLORS = { hot: '#ef4444', warm: '#f59e0b', cold: '#94a3b8' }
   const score = decision?.score ?? 'cold'
+  const isCvent = lead.source === 'cvent'
 
   return (
     <div className="lead-detail">
@@ -138,7 +186,14 @@ export default function LeadDetail() {
 
         {/* Email Draft Editor */}
         <div className="detail-panel">
-          <h3>Email Draft {sent && <span className="sent-tag">Sent ✓</span>}</h3>
+          <h3>
+            Email Draft{' '}
+            {sent && (
+              <span className="sent-tag">
+                {emailWasSent ? 'Email Sent ✓' : 'Approved ✓'}
+              </span>
+            )}
+          </h3>
 
           <div className="form-group">
             <label>Subject</label>
@@ -166,9 +221,19 @@ export default function LeadDetail() {
               <button className="btn-outline" onClick={handleSaveDraft} disabled={saving}>
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
-              <button className="btn-primary" onClick={handleApproveAndSend} disabled={sending}>
+              <button
+                className="btn-primary"
+                onClick={() => { setSendError(null); setShowModal(true) }}
+                disabled={sending}
+              >
                 {sending ? 'Sending...' : 'Approve & Send'}
               </button>
+            </div>
+          )}
+
+          {sendError && (
+            <div className="send-error-banner" style={{ marginTop: 12 }}>
+              ⚠ {sendError}
             </div>
           )}
 
@@ -190,6 +255,64 @@ export default function LeadDetail() {
           )}
         </div>
       </div>
+
+      {/* Cvent: full Bid Advisor modal */}
+      {showModal && isCvent && (
+        <BidAdvisorModal
+          lead={lead}
+          decision={{ ...decision, draft_subject: emailSubject, draft_body: emailBody }}
+          hotelId={lead.hotel_id}
+          onConfirm={handleConfirmSend}
+          onCancel={() => setShowModal(false)}
+          sending={sending}
+        />
+      )}
+
+      {/* All other sources: email confirm modal */}
+      {showModal && !isCvent && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="send-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="send-confirm-header">
+              {hasValidEmail ? (
+                <>
+                  <h3>Send this email?</h3>
+                  <p>This will be sent from your Gmail to <strong>{lead.contact_email}</strong></p>
+                </>
+              ) : (
+                <>
+                  <h3>Approve without sending?</h3>
+                  <p className="send-confirm-no-email-warn">
+                    ⚠ No email address on file — the lead will be marked as approved but <strong>no email will be sent</strong>.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="send-confirm-email">
+              {hasValidEmail && (
+                <div className="send-confirm-field">
+                  <span className="send-confirm-label">To</span>
+                  <span className="send-confirm-value">{lead.contact_email}</span>
+                </div>
+              )}
+              <div className="send-confirm-field">
+                <span className="send-confirm-label">Subject</span>
+                <span className="send-confirm-value">{emailSubject}</span>
+              </div>
+              <div className="send-confirm-body">{emailBody}</div>
+            </div>
+
+            <div className="send-confirm-actions">
+              <button className="btn-ghost" onClick={() => setShowModal(false)}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={handleConfirmSend}>
+                {hasValidEmail ? 'Send Email' : 'Approve Anyway'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
