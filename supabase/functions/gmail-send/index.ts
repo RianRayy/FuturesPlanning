@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { lead_id, hotel_id, to, subject, body } = await req.json()
+    const { lead_id, hotel_id, to, subject, body, bid_rate, bid_notes } = await req.json()
 
     if (!to || !subject || !body) {
       return new Response(
@@ -153,8 +153,9 @@ Deno.serve(async (req) => {
               body: JSON.stringify({
                 hotel_id,
                 rfp_id:     lead.external_id,
-                rate:       lead.budget_per_night,
-                email_body: body
+                rate:       bid_rate ?? lead.budget_per_night,
+                email_body: body,
+                notes:      bid_notes ?? null
               })
             }
           )

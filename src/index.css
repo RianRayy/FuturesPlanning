@@ -568,6 +568,185 @@ body {
 }
 .send-confirm-no-email-warn strong { color: #fbbf24; }
 
+/* ============================================
+   Bid Advisor Modal
+   ============================================ */
+.bid-advisor-modal {
+  background: #1e2235;
+  border: 1px solid #2d3149;
+  border-radius: 16px;
+  width: 100%; max-width: 620px;
+  max-height: 90vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+  overflow: hidden;
+}
+.bid-advisor-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid #2d3149;
+}
+.bid-advisor-header h3 {
+  font-size: 18px; font-weight: 700; color: #e8eaf0; margin: 0 0 4px;
+}
+.bid-advisor-header p {
+  font-size: 13px; color: #7c8db5; margin: 0;
+}
+.bid-advisor-body {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.bid-advisor-loading {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; padding: 40px 0; color: #7c8db5; font-size: 14px;
+}
+
+/* Rate control */
+.bid-rate-section {
+  background: #131825;
+  border: 1px solid #2d3149;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.bid-rate-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #7c8db5;
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.bid-rate-suggested-tag {
+  background: rgba(16,185,129,0.12); color: #10b981;
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: 20px; padding: 2px 10px;
+  font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0;
+}
+.bid-rate-controls {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.bid-rate-btn {
+  background: #252a3a; border: 1px solid #3d4460;
+  color: #a0b0d0; border-radius: 8px;
+  padding: 8px 14px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.bid-rate-btn:hover { background: #2d3449; }
+.bid-rate-display {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1; justify-content: center;
+}
+.bid-rate-dollar { font-size: 22px; font-weight: 700; color: #e8eaf0; }
+.bid-rate-input {
+  background: transparent; border: none; outline: none;
+  font-size: 36px; font-weight: 800; color: #e8eaf0;
+  width: 100px; text-align: center;
+  -moz-appearance: textfield;
+}
+.bid-rate-input::-webkit-inner-spin-button,
+.bid-rate-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.bid-rate-unit { font-size: 14px; color: #7c8db5; }
+.bid-rate-status {
+  font-size: 12px; font-weight: 500;
+  margin-bottom: 8px; text-align: center;
+}
+.bid-rate-range {
+  font-size: 12px; color: #7c8db5; text-align: center;
+}
+.bid-rate-range strong { color: #a0b0d0; }
+.bid-rate-budget {
+  color: #f59e0b; margin-left: 4px;
+}
+
+/* Win probability */
+.bid-win-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px;
+  border: 1px solid transparent;
+}
+.bid-win-badge {
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.bid-win-note { font-size: 12px; color: #a0b0d0; }
+
+/* Reasoning */
+.bid-reasoning-section {}
+.bid-section-label {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #7c8db5; margin-bottom: 8px;
+}
+.bid-optional { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.bid-reasoning {
+  font-size: 13px; color: #a0b0d0; line-height: 1.6; margin: 0 0 6px;
+}
+.bid-market-context {
+  font-size: 12px; color: #7c8db5; line-height: 1.5; margin: 0;
+  font-style: italic;
+}
+
+/* Factors */
+.bid-factors {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.bid-factor {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 12px;
+  background: #131825; border-radius: 8px;
+}
+.bid-factor-icon {
+  font-size: 16px; font-weight: 700; flex-shrink: 0; line-height: 1.4;
+}
+.bid-factor-label {
+  font-size: 12px; font-weight: 600; color: #a0b0d0; margin-right: 6px;
+}
+.bid-factor-note { font-size: 12px; color: #7c8db5; }
+
+/* Error */
+.bid-error {
+  font-size: 13px; color: #f59e0b;
+  padding: 10px 14px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 8px;
+}
+
+/* Notes */
+.bid-notes-section {}
+.bid-notes-input {
+  width: 100%; box-sizing: border-box;
+  background: #131825; border: 1px solid #2d3149;
+  border-radius: 8px; padding: 10px 12px;
+  font-size: 13px; color: #e8eaf0; line-height: 1.5;
+  resize: vertical; outline: none;
+  font-family: inherit;
+}
+.bid-notes-input:focus { border-color: var(--color-primary); }
+.bid-notes-input::placeholder { color: #4d5580; }
+
+/* Email toggle */
+.bid-email-toggle {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: #7c8db5; padding: 0;
+  text-align: left; transition: color 0.15s;
+}
+.bid-email-toggle:hover { color: #a0b0d0; }
+.bid-email-preview {
+  background: #131825; border: 1px solid #2d3149;
+  border-radius: 8px; padding: 14px;
+}
+.bid-email-field {
+  display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px;
+}
+.bid-email-body {
+  margin-top: 10px; font-size: 13px; color: #a0b0d0;
+  line-height: 1.6; white-space: pre-wrap;
+  max-height: 180px; overflow-y: auto;
+}
+
+/* Actions */
+.bid-advisor-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #2d3149;
+}
+
 /* Send confirmation modal */
 .send-confirm-modal {
   background: #1e2235;

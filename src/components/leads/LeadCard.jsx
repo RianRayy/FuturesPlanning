@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabase'
 import { format } from 'date-fns'
 import { PLATFORM_CONFIG } from '../../integrations'
+import BidAdvisorModal from './BidAdvisorModal'
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
 const ANON_KEY      = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -59,7 +60,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
     setSavingEmail(false)
   }
 
-  async function handleConfirmSend() {
+  async function handleConfirmSend({ bidRate, bidNotes } = {}) {
     setShowConfirmModal(false)
     setSending(true)
     setSendError(null)
@@ -81,7 +82,7 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
       return
     }
 
-    // Email on file — send via Gmail
+    // Email on file — send via Gmail (which also auto-submits Cvent proposal if applicable)
     try {
       const res = await fetch(`${FUNCTIONS_URL}/gmail-send`, {
         method: 'POST',
@@ -91,11 +92,14 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
           'apikey': ANON_KEY
         },
         body: JSON.stringify({
-          lead_id: lead.id,
-          hotel_id: hotelId,
-          to: lead.contact_email,
-          subject: decision.draft_subject,
-          body: decision.draft_body
+          lead_id:   lead.id,
+          hotel_id:  hotelId,
+          to:        lead.contact_email,
+          subject:   decision.draft_subject,
+          body:      decision.draft_body,
+          // Bid advisor params — passed through to Cvent proposal if applicable
+          bid_rate:  bidRate ?? null,
+          bid_notes: bidNotes ?? null
         })
       })
 
@@ -222,8 +226,20 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
         </div>
       )}
 
-      {/* Send confirmation modal */}
-      {showConfirmModal && (
+      {/* Cvent: show bid advisor modal with rate intelligence */}
+      {showConfirmModal && lead.source === 'cvent' && (
+        <BidAdvisorModal
+          lead={lead}
+          decision={decision}
+          hotelId={hotelId}
+          onConfirm={handleConfirmSend}
+          onCancel={() => setShowConfirmModal(false)}
+          sending={sending}
+        />
+      )}
+
+      {/* All other sources: simple email confirmation modal */}
+      {showConfirmModal && lead.source !== 'cvent' && (
         <div className="modal-overlay" onClick={() => setShowConfirmModal(false)}>
           <div className="send-confirm-modal" onClick={e => e.stopPropagation()}>
             <div className="send-confirm-header">
