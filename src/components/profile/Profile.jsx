@@ -458,21 +458,24 @@ export default function Profile() {
 
                       {hasEmailConnection ? (
                         <p className="personal-tone-desc">
-                          Gmail or Outlook is connected. Click below to let the agent read your recent sent emails and learn your style automatically.
+                          Gmail is connected. Click below and the agent will read your recent sent emails to learn your writing style automatically.
                         </p>
                       ) : (
                         <p className="personal-tone-desc">
-                          No email account connected yet. Paste a few emails you've written below so the agent can learn your style — or connect Gmail/Outlook in the Connections tab for automatic analysis.
+                          No email account connected yet. Connect Gmail or Outlook in the <button className="personal-tone-link" onClick={() => setActiveTab('connections')}>Connections tab</button> for automatic analysis, or paste a few sample emails below.
                         </p>
                       )}
 
-                      <textarea
-                        className="personal-tone-textarea"
-                        rows={6}
-                        placeholder={'Paste 2–3 emails you\'ve written here...\n\n"Hi Sarah, thanks for reaching out about your conference — we\'d love to host your group..."\n\n"Hey John, just following up on your inquiry from last week..."'}
-                        value={emailSamples}
-                        onChange={e => { setEmailSamples(e.target.value); setToneAnalyzed(false) }}
-                      />
+                      {/* Only show paste box if no email account connected */}
+                      {!hasEmailConnection && (
+                        <textarea
+                          className="personal-tone-textarea"
+                          rows={6}
+                          placeholder={'Paste 2–3 emails you\'ve written here...\n\n"Hi Sarah, thanks for reaching out about your conference — we\'d love to host your group..."\n\n"Hey John, just following up on your inquiry from last week..."'}
+                          value={emailSamples}
+                          onChange={e => { setEmailSamples(e.target.value); setToneAnalyzed(false) }}
+                        />
+                      )}
 
                       <button
                         className="btn-analyze-tone"

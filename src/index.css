@@ -185,6 +185,10 @@ body {
 .personal-tone-desc {
   font-size: 13px; color: #7c8db5; line-height: 1.6;
 }
+.personal-tone-link {
+  background: none; border: none; color: var(--color-primary);
+  font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline;
+}
 .personal-tone-textarea {
   background: #0f1117;
   border: 1px solid #2d3149;
