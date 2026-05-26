@@ -54,8 +54,11 @@ export const PLATFORMS = [
     description: 'Leading RFP platform — meeting planners send inquiries here',
     color: '#10b981',
     bg: '#052e1c',
-    authType: 'oauth',
-    authUrl: 'https://identity.cvent.com/connect/authorize',
+    authType: 'apikey',
+    fields: [
+      { key: 'client_id',     label: 'Client ID',     type: 'text',     hint: 'From Cvent Developer Portal → Applications' },
+      { key: 'client_secret', label: 'Client Secret', type: 'password', hint: 'From Cvent Developer Portal → Applications' }
+    ],
     logo: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="40" height="40" rx="8" fill="#10b981"/>
       <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="sans-serif">CV</text>

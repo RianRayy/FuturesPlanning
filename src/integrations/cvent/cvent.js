@@ -3,164 +3,102 @@ import { supabase } from '../../supabase'
 // =============================================
 // Cvent Integration
 // =============================================
-// Cvent is the dominant RFP platform for group
-// sales. Hotels receive RFPs (Request for Proposals)
-// from meeting planners directly via Cvent Supplier.
+// Cvent is the dominant RFP platform for group sales.
+// Meeting planners submit RFPs through Cvent Supplier
+// Network and hotels respond with proposals.
 //
-// Auth: OAuth 2.0 client credentials flow
-// Docs: https://developers.cvent.com/documentation
+// Auth: OAuth 2.0 client credentials (machine-to-machine)
+// Hotel provides: client_id + client_secret from their
+// Cvent Developer Portal → Applications
 //
-// Key objects:
-//   - RFP (Request for Proposal) — the inbound lead
-//   - Event — the planner's event details
-//   - Account — the planner's organization
+// All Cvent API calls run server-side via Supabase Edge
+// Functions — credentials never touch the browser.
+//
+// Real-time: Cvent pushes new RFPs via webhook (PNS).
+// The webhook URL to register in Cvent is:
+//   https://{PROJECT_REF}.supabase.co/functions/v1/cvent-webhook?hotel_id={hotel_id}
 
-const CVENT_BASE_URL = 'https://api.cvent.com/ea'
+const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1'
+const ANON_KEY      = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-async function getCventToken(hotelId) {
-  const { data } = await supabase
+function headers() {
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${ANON_KEY}`,
+    'apikey': ANON_KEY
+  }
+}
+
+/**
+ * Pull new RFPs from Cvent and insert as leads.
+ * Runs server-side — credentials stay in Supabase.
+ */
+export async function ingestLeads(hotelId) {
+  // Check connection exists before bothering the Edge Function
+  const { data: conn } = await supabase
     .from('crm_connections')
-    .select('access_token, refresh_token, token_expires_at, config')
+    .select('id')
     .eq('hotel_id', hotelId)
     .eq('provider', 'cvent')
     .single()
 
-  if (!data) throw new Error('No Cvent connection found for this hotel')
-  // TODO: auto-refresh using client_id + client_secret from config
-  return data.access_token
-}
+  if (!conn) return [] // Not connected — skip silently
 
-/**
- * Fetch new RFPs from Cvent and insert as leads.
- * Cvent RFPs are the gold standard for group sales leads —
- * they contain full event specs, room blocks, and planner contact info.
- */
-export async function ingestLeads(hotelId) {
-  let token
-  try {
-    token = await getCventToken(hotelId)
-  } catch {
-    return [] // Hotel hasn't connected Cvent — skip silently
-  }
+  const res = await fetch(`${FUNCTIONS_URL}/cvent-ingest`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ hotel_id: hotelId })
+  })
 
-  // Fetch RFPs in 'Received' status (new, not yet responded to)
-  const response = await fetch(
-    `${CVENT_BASE_URL}/rfps?filter=status eq 'Received'&expand=event,account,contact`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json'
-      }
-    }
-  )
-
-  if (!response.ok) {
-    console.error('Cvent fetch failed:', await response.text())
+  if (!res.ok) {
+    console.error('Cvent ingest failed:', await res.text())
     return []
   }
 
-  const { data: rfps } = await response.json()
-  if (!rfps?.length) return []
-
-  const normalized = rfps.map(rfp => normalizeRfp(rfp, hotelId))
-  return await upsertLeads(normalized, hotelId)
+  const { leads = [] } = await res.json()
+  return leads
 }
 
 /**
- * Submit a proposal/response back to Cvent for an RFP.
- * Called after the agent drafts and the user approves.
+ * Submit a proposal/bid back to Cvent for an approved lead.
+ * Called automatically when the user approves a Cvent lead.
  */
-export async function submitCventProposal(lead, decision, hotelId) {
-  const token = await getCventToken(hotelId)
-  if (!lead.external_id) return
+export async function submitProposal(lead, decision, hotelId) {
+  if (!lead.external_id || lead.source !== 'cvent') return
 
-  await fetch(`${CVENT_BASE_URL}/rfps/${lead.external_id}/proposals`, {
+  const res = await fetch(`${FUNCTIONS_URL}/cvent-submit-proposal`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
+    headers: headers(),
     body: JSON.stringify({
-      status: 'Submitted',
-      notes: decision.draft_body,
-      proposedRate: lead.budget_per_night
+      hotel_id:   hotelId,
+      rfp_id:     lead.external_id,
+      rate:       lead.budget_per_night,
+      email_body: decision.draft_body
     })
   })
+
+  if (!res.ok) {
+    console.error('Cvent proposal submission failed:', await res.text())
+  }
 }
 
 /**
- * Submit a decline/pass response to Cvent for an RFP.
- * The planner is automatically notified through the Cvent platform.
+ * Pass on / decline an RFP — notifies Cvent so the planner
+ * knows to move on. Non-critical if this fails.
  */
 export async function declineLead(lead, hotelId) {
-  if (!lead.external_id) return
-  let token
-  try { token = await getCventToken(hotelId) } catch { return }
+  if (!lead.external_id || lead.source !== 'cvent') return
 
-  await fetch(`${CVENT_BASE_URL}/rfps/${lead.external_id}/response`, {
+  const res = await fetch(`${FUNCTIONS_URL}/cvent-decline`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'Declined', notes: 'We are unable to accommodate this group at this time. We appreciate the opportunity.' })
-  })
-}
-
-// ---- Internal helpers ----
-
-function normalizeRfp(rfp, hotelId) {
-  const event = rfp.event ?? {}
-  const contact = rfp.contact ?? {}
-  const account = rfp.account ?? {}
-
-  // Cvent uses ISO dates directly
-  const checkIn = event.startDate ?? null
-  const checkOut = event.endDate ?? null
-
-  // Map Cvent event types to our taxonomy
-  const eventTypeMap = {
-    'Corporate Meeting': 'corporate',
-    'Conference': 'corporate',
-    'Trade Show': 'corporate',
-    'Wedding': 'wedding',
-    'Social Event': 'social',
-    'Sports Event': 'sports',
-    'Government': 'government',
-    'Religious': 'religious',
-    'Tour & Travel': 'tour & travel'
-  }
-
-  return {
-    hotel_id: hotelId,
-    source: 'cvent',
-    external_id: rfp.id,
-    external_url: `https://supplier.cvent.com/rfps/${rfp.id}`,
-    contact_name: `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || 'Unknown',
-    contact_email: contact.email ?? null,
-    contact_phone: contact.phone ?? null,
-    company: account.name ?? null,
-    event_type: eventTypeMap[event.type] ?? 'other',
-    group_size: event.peakRooms ?? event.estimatedRooms ?? null,
-    dates_requested: {
-      check_in: checkIn,
-      check_out: checkOut,
-      flexible: event.datesFlexible ?? false
-    },
-    budget_per_night: event.budgetPerRoom ?? null,
-    fb_budget: event.foodBeverageBudget ?? null,
-    special_requests: event.specialRequests ?? null,
-    raw_content: JSON.stringify(rfp),
-    status: 'pending'
-  }
-}
-
-async function upsertLeads(leads, hotelId) {
-  const { data, error } = await supabase
-    .from('leads')
-    .upsert(leads, {
-      onConflict: 'hotel_id,source,external_id',
-      ignoreDuplicates: true
+    headers: headers(),
+    body: JSON.stringify({
+      hotel_id: hotelId,
+      rfp_id:   lead.external_id
     })
-    .select('id')
+  })
 
-  if (error) console.error('Cvent lead upsert error:', error)
-  return data ?? []
+  if (!res.ok) {
+    console.warn('Cvent decline notification failed (non-critical):', await res.text())
+  }
 }

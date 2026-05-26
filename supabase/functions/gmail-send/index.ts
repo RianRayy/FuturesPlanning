@@ -130,6 +130,39 @@ Deno.serve(async (req) => {
         body,
         to_address: to
       })
+
+      // 6. If this is a Cvent lead, also submit the proposal back to Cvent
+      // so the meeting planner sees the response in their Cvent dashboard
+      const { data: lead } = await supabase
+        .from('leads')
+        .select('source, external_id, budget_per_night')
+        .eq('id', lead_id)
+        .single()
+
+      if (lead?.source === 'cvent' && lead?.external_id) {
+        try {
+          await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/cvent-submit-proposal`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':  'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'apikey':        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+              },
+              body: JSON.stringify({
+                hotel_id,
+                rfp_id:     lead.external_id,
+                rate:       lead.budget_per_night,
+                email_body: body
+              })
+            }
+          )
+        } catch (cventErr) {
+          // Non-critical — email already sent, just log
+          console.warn('Cvent proposal submit failed (non-critical):', cventErr)
+        }
+      }
     }
 
     return new Response(
