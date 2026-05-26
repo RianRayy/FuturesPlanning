@@ -30,8 +30,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
   const [sendError, setSendError] = useState(null)
   const [emailInput, setEmailInput] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
-  const [draftSubject, setDraftSubject] = useState(decision?.draft_subject ?? '')
-  const [draftBody, setDraftBody] = useState(decision?.draft_body ?? '')
+  const [draftSubject, setDraftSubject] = useState(lead.lead_decisions?.draft_subject ?? '')
+  const [draftBody, setDraftBody] = useState(lead.lead_decisions?.draft_body ?? '')
 
   const decision = lead.lead_decisions
   const score = decision?.score ?? 'cold'
