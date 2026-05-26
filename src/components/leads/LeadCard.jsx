@@ -148,117 +148,121 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
 
   return (
     <div className={`lead-card ${config.className} ${sent ? 'lead-card-sent' : ''}`}>
-      <div className="lead-card-header">
-        <div className="lead-score-badge">
-          <span className="score-emoji">{config.emoji}</span>
-          <span className="score-label">{config.label}</span>
+
+      {/* Clickable info area — navigates to detail page */}
+      <div className="lead-card-clickable" onClick={() => navigate(`/leads/${lead.id}`)}>
+        <div className="lead-card-header">
+          <div className="lead-score-badge">
+            <span className="score-emoji">{config.emoji}</span>
+            <span className="score-label">{config.label}</span>
+          </div>
+          <div
+            className="lead-source-badge"
+            style={{ color: platform.color, background: platform.bg, borderColor: platform.color }}
+          >
+            {platform.label}
+          </div>
         </div>
-        <div
-          className="lead-source-badge"
-          style={{ color: platform.color, background: platform.bg, borderColor: platform.color }}
-        >
-          {platform.label}
+
+        <div className="lead-card-body">
+          <h3 className="lead-contact">{lead.contact_name || 'Unknown Contact'}</h3>
+          {lead.company && <p className="lead-company">{lead.company}</p>}
+
+          <div className="lead-details">
+            {lead.event_type && <span className="lead-tag">{lead.event_type}</span>}
+            {lead.group_size && <span className="lead-tag">{lead.group_size} rooms</span>}
+            {checkIn && (
+              <span className="lead-tag">
+                {format(new Date(checkIn), 'MMM d')}
+                {checkOut ? ` – ${format(new Date(checkOut), 'MMM d, yyyy')}` : ''}
+              </span>
+            )}
+            {budget && <span className="lead-tag">Budget: ${budget}/night</span>}
+          </div>
+
+          {/* Agent reasoning */}
+          {decision?.reasoning && (
+            <div className="lead-reasoning">
+              <span className="reasoning-label">Agent insight</span>
+              <p>{decision.reasoning}</p>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="lead-card-body">
-        <h3 className="lead-contact">{lead.contact_name || 'Unknown Contact'}</h3>
-        {lead.company && <p className="lead-company">{lead.company}</p>}
-
-        <div className="lead-details">
-          {lead.event_type && <span className="lead-tag">{lead.event_type}</span>}
-          {lead.group_size && <span className="lead-tag">{lead.group_size} rooms</span>}
-          {checkIn && (
-            <span className="lead-tag">
-              {format(new Date(checkIn), 'MMM d')}
-              {checkOut ? ` – ${format(new Date(checkOut), 'MMM d, yyyy')}` : ''}
-            </span>
-          )}
-          {budget && <span className="lead-tag">Budget: ${budget}/night</span>}
-        </div>
-
-        {/* Agent reasoning */}
-        {decision?.reasoning && (
-          <div className="lead-reasoning">
-            <span className="reasoning-label">Agent insight</span>
-            <p>{decision.reasoning}</p>
+      {/* Inline bid rate + win probability — inside card, stops propagation so clicks don't navigate */}
+      {!sent && decision?.draft_body && (
+        <div className="card-bid-section" onClick={e => e.stopPropagation()}>
+          <div className="card-bid-row">
+            <span className="card-bid-label">Your Bid Rate</span>
+            {budget && (
+              <span className="card-bid-budget">Planner budget: ${budget}/night</span>
+            )}
           </div>
-        )}
+          <div className="card-bid-controls">
+            <button className="card-bid-btn" onClick={() => adjustRate(-5)}>−$5</button>
+            <div className="card-bid-display">
+              <span className="card-bid-dollar">$</span>
+              <input
+                type="number"
+                className="card-bid-input"
+                value={bidRate}
+                onChange={e => setBidRate(Math.max(0, Number(e.target.value)))}
+                min={0}
+              />
+              <span className="card-bid-unit">/night</span>
+            </div>
+            <button className="card-bid-btn" onClick={() => adjustRate(5)}>+$5</button>
+          </div>
 
-        {/* Inline bid rate + win probability — always visible when not sent */}
-        {!sent && decision?.draft_body && (
-          <div className="card-bid-section">
-            <div className="card-bid-row">
-              <span className="card-bid-label">Your Bid Rate</span>
-              {budget && (
-                <span className="card-bid-budget">Planner budget: ${budget}/night</span>
+          {winProb && (
+            <div className="card-win-prob" style={{ background: winProb.bg, borderColor: winProb.color }}>
+              <span className="card-win-label" style={{ color: winProb.color }}>
+                {winProb.label} Win Probability
+              </span>
+              <span className="card-win-note">{winProb.note}</span>
+              {lead.source === 'cvent' && (
+                <button
+                  className="card-bid-advisor-link"
+                  onClick={() => setShowBidAdvisor(true)}
+                >
+                  Full rate analysis →
+                </button>
               )}
             </div>
-            <div className="card-bid-controls">
-              <button className="card-bid-btn" onClick={() => adjustRate(-5)}>−$5</button>
-              <div className="card-bid-display">
-                <span className="card-bid-dollar">$</span>
-                <input
-                  type="number"
-                  className="card-bid-input"
-                  value={bidRate}
-                  onChange={e => setBidRate(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                />
-                <span className="card-bid-unit">/night</span>
-              </div>
-              <button className="card-bid-btn" onClick={() => adjustRate(5)}>+$5</button>
-            </div>
+          )}
 
-            {winProb && (
-              <div className="card-win-prob" style={{ background: winProb.bg, borderColor: winProb.color }}>
-                <span className="card-win-label" style={{ color: winProb.color }}>
-                  {winProb.label} Win Probability
-                </span>
-                <span className="card-win-note">{winProb.note}</span>
-                {lead.source === 'cvent' && (
-                  <button
-                    className="card-bid-advisor-link"
-                    onClick={() => setShowBidAdvisor(true)}
-                  >
-                    Full rate analysis →
-                  </button>
-                )}
-              </div>
-            )}
+          {!budget && (
+            <p className="card-bid-no-budget">Budget not disclosed — enter your rate above</p>
+          )}
+        </div>
+      )}
 
-            {!budget && (
-              <p className="card-bid-no-budget">Budget not disclosed — enter your rate above</p>
-            )}
+      {/* Inline email entry when no address on file */}
+      {!hasValidEmail && !sent && (
+        <div className="lead-email-missing" onClick={e => e.stopPropagation()}>
+          <span className="lead-email-missing-label">⚠ No email on file</span>
+          <div className="lead-email-input-row">
+            <input
+              type="email"
+              className="lead-email-input"
+              placeholder="Enter email address..."
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSaveEmail()}
+            />
+            <button
+              className="btn-ghost btn-sm"
+              onClick={handleSaveEmail}
+              disabled={savingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)}
+            >
+              {savingEmail ? '...' : 'Save'}
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Inline email entry when no address on file */}
-        {!hasValidEmail && !sent && (
-          <div className="lead-email-missing">
-            <span className="lead-email-missing-label">⚠ No email on file</span>
-            <div className="lead-email-input-row">
-              <input
-                type="email"
-                className="lead-email-input"
-                placeholder="Enter email address..."
-                value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSaveEmail()}
-              />
-              <button
-                className="btn-ghost btn-sm"
-                onClick={handleSaveEmail}
-                disabled={savingEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput)}
-              >
-                {savingEmail ? '...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="lead-card-actions">
+      <div className="lead-card-actions" onClick={e => e.stopPropagation()}>
         {declined ? (
           <div className="declined-badge">Declined ✓</div>
         ) : !sent ? (
@@ -270,12 +274,6 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
               title="Decline this inquiry"
             >
               {declining ? '...' : 'Decline'}
-            </button>
-            <button
-              className="btn-outline"
-              onClick={() => navigate(`/leads/${lead.id}`)}
-            >
-              Review Draft
             </button>
             <button
               className="btn-primary btn-send"

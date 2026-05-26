@@ -496,6 +496,7 @@ body {
   color: var(--color-text);
 }
 .lead-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+.lead-card-clickable { cursor: pointer; }
 .score-hot { border-left-color: var(--color-hot); }
 .score-warm { border-left-color: var(--color-warm); }
 .score-cold { border-left-color: var(--color-cold); }
