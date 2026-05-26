@@ -540,10 +540,8 @@ body {
 /* ── Inline bid rate + win probability on card ── */
 .card-bid-section {
   margin-top: 14px;
-  padding: 12px 14px;
-  background: rgba(79,126,248,0.06);
-  border: 1px solid rgba(79,126,248,0.18);
-  border-radius: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
 }
 .card-bid-row {
   display: flex; align-items: center; justify-content: space-between;
