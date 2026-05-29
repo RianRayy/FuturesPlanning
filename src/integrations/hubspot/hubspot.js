@@ -15,14 +15,13 @@ const HUBSPOT_BASE_URL = 'https://api.hubapi.com'
 async function getHubSpotToken(hotelId) {
   const { data } = await supabase
     .from('crm_connections')
-    .select('access_token, refresh_token, token_expires_at')
+    .select('config')
     .eq('hotel_id', hotelId)
     .eq('provider', 'hubspot')
     .single()
 
-  if (!data) throw new Error('No HubSpot connection found for this hotel')
-  // TODO: auto-refresh token if expired using refresh_token
-  return data.access_token
+  if (!data?.config?.api_key) throw new Error('No HubSpot connection found for this hotel')
+  return data.config.api_key
 }
 
 /**

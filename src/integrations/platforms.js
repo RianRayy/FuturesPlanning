@@ -40,8 +40,10 @@ export const PLATFORMS = [
     description: 'Popular CRM for mid-market hotels and independent properties',
     color: '#f97316',
     bg: '#2d1500',
-    authType: 'oauth',
-    authUrl: 'https://app.hubspot.com/oauth/authorize',
+    authType: 'apikey',
+    fields: [
+      { key: 'api_key', label: 'Service Key', type: 'password', hint: 'From HubSpot → Development → Service Keys' }
+    ],
     logo: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="40" height="40" rx="8" fill="#f97316"/>
       <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="12" font-weight="700" font-family="sans-serif">HS</text>
