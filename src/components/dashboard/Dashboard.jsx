@@ -161,7 +161,12 @@ export default function Dashboard() {
 
     if (!data) return
     setLeads(data)
-    setReachedLeads(data.filter(l => l.lead_decisions?.sent_at))
+    const twoMonthsAgo = new Date()
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+    setReachedLeads(data.filter(l =>
+      l.lead_decisions?.sent_at &&
+      new Date(l.lead_decisions.sent_at) >= twoMonthsAgo
+    ))
 
     // Build new top 5 (same sort logic as below)
     const sorted = [...data].sort((a, b) => {
@@ -430,7 +435,7 @@ export default function Dashboard() {
                 <div className="section-header">
                   <div>
                     <h2>✉ Reached Out</h2>
-                    <p className="section-subheader">Leads you've already contacted — {reachedLeads.length} total</p>
+                    <p className="section-subheader">Leads contacted in the last 2 months — {reachedLeads.length} total</p>
                   </div>
                 </div>
                 <div className="leads-grid">
