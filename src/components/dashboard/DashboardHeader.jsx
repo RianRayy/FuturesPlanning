@@ -16,6 +16,7 @@ export default function DashboardHeader({
   hotSeasonalCount,
   warmSeasonalCount,
   rejectedCount,
+  reachedCount,
   activeTab,
   onTabChange,
   activeFilter,
@@ -163,6 +164,15 @@ export default function DashboardHeader({
           Recruiting
           {(seasonalCount ?? 0) > 0 && (
             <span className="briefing-tab-count count-seasonal">{seasonalCount}</span>
+          )}
+        </button>
+        <button
+          className={`briefing-tab briefing-tab-reached ${activeTab === 'reached' ? 'briefing-tab-active' : ''}`}
+          onClick={() => onTabChange('reached')}
+        >
+          Reached
+          {(reachedCount ?? 0) > 0 && (
+            <span className="briefing-tab-count count-reached">{reachedCount}</span>
           )}
         </button>
         <button

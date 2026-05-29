@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [seasonalFilter, setSeasonalFilter] = useState(null)
   const [seasonalOutreach, setSeasonalOutreach] = useState([])
   const [rejectedLeads, setRejectedLeads] = useState([])
+  const [reachedLeads, setReachedLeads] = useState([])
   const [notifications, setNotifications] = useState([])
   const [toast, setToast] = useState(null)
   const [showConnectModal, setShowConnectModal] = useState(false)
@@ -160,6 +161,7 @@ export default function Dashboard() {
 
     if (!data) return
     setLeads(data)
+    setReachedLeads(data.filter(l => l.lead_decisions?.sent_at))
 
     // Build new top 5 (same sort logic as below)
     const sorted = [...data].sort((a, b) => {
@@ -387,6 +389,7 @@ export default function Dashboard() {
         hotSeasonalCount={hotSeasonalCount}
         warmSeasonalCount={warmSeasonalCount}
         rejectedCount={rejectedCount}
+        reachedCount={reachedLeads.length}
         activeTab={activeTab}
         onTabChange={(tab) => { setActiveTab(tab); setActiveFilter(null); setSeasonalFilter(null) }}
         activeFilter={activeFilter}
@@ -418,6 +421,33 @@ export default function Dashboard() {
             : activeFilter === 'followups'
               ? <div className="empty-state"><p>Nothing due today — you're ahead of the game.</p></div>
               : null
+        )}
+
+        {/* REACHED TAB */}
+        {activeTab === 'reached' && (
+          reachedLeads.length > 0
+            ? <div className="reached-section">
+                <div className="section-header">
+                  <div>
+                    <h2>✉ Reached Out</h2>
+                    <p className="section-subheader">Leads you've already contacted — {reachedLeads.length} total</p>
+                  </div>
+                </div>
+                <div className="leads-grid">
+                  {reachedLeads.map(lead => (
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      hotelId={hotelId}
+                      onUpdate={() => loadLeadsAndDetectChanges(hotelId)}
+                      onDecline={handleDecline}
+                    />
+                  ))}
+                </div>
+              </div>
+            : <div className="empty-state">
+                <p>No leads reached out to yet — approve and send your first email to see them here.</p>
+              </div>
         )}
 
         {/* REJECTED TAB */}

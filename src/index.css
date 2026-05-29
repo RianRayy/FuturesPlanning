@@ -440,6 +440,10 @@ body {
   color: var(--color-primary);
 }
 .count-seasonal { background: rgba(168,85,247,0.2) !important; color: #d8b4fe !important; }
+.briefing-tab-reached.briefing-tab-active {
+  color: #10b981; border-bottom-color: #10b981;
+}
+.count-reached { background: rgba(16,185,129,0.2) !important; color: #6ee7b7 !important; }
 .briefing-tab-rejected.briefing-tab-active {
   border-bottom-color: #ef4444;
   background: rgba(239,68,68,0.06);
