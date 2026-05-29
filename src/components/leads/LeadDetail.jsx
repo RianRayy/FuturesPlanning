@@ -20,6 +20,7 @@ export default function LeadDetail() {
   const [emailWasSent, setEmailWasSent] = useState(false)
   const [showModal, setShowModal]     = useState(false)
   const [sendError, setSendError]     = useState(null)
+  const [bidRate, setBidRate]         = useState(0)
 
   useEffect(() => { loadLead() }, [id])
 
@@ -37,6 +38,8 @@ export default function LeadDetail() {
       setEmailSubject(data.lead_decisions?.draft_subject ?? '')
       setSent(!!data.lead_decisions?.sent_at)
       setEmailWasSent(!!data.lead_decisions?.sent_at)
+      const budget = data.budget_per_night ?? null
+      if (budget) setBidRate(Math.round(budget * 0.9 / 5) * 5)
     }
   }
 
@@ -121,10 +124,6 @@ export default function LeadDetail() {
   const score   = decision?.score ?? 'cold'
   const isCvent = lead.source === 'cvent'
   const budget  = lead.budget_per_night ?? null
-
-  // Inline bid rate state
-  const defaultRate = budget ? Math.round(budget * 0.9 / 5) * 5 : 0
-  const [bidRate, setBidRate] = useState(defaultRate)
 
   function adjustRate(delta) {
     setBidRate(r => Math.max(0, Math.round((r + delta) / 5) * 5))
