@@ -272,6 +272,8 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
         ) : (
           <div className="sent-badge">
             {emailWasSent ? 'Email sent ✓' : 'Approved ✓'}
+            {decision?.follow_up_2_sent_at && <span className="followup-badge">2 follow-ups sent</span>}
+            {decision?.follow_up_1_sent_at && !decision?.follow_up_2_sent_at && <span className="followup-badge">1 follow-up sent</span>}
           </div>
         )}
       </div>
