@@ -102,6 +102,17 @@ export default function Dashboard() {
     // Subscribe to real-time lead decision changes
     setupRealtimeSubscription(hid)
 
+    // Scan Gmail inbox for lead emails from Cvent, HotelPlanner, etc.
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-ingest`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ hotel_id: hid })
+    }).catch(err => console.error('Gmail ingest error:', err))
+
     // Pull new leads from all connected platforms, then score them —
     // Delphi, Salesforce, HubSpot, Cvent, HotelPlanner all run in parallel
     ingestAllPlatforms(hid)
