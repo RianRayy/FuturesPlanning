@@ -164,7 +164,7 @@ export default function Dashboard() {
   async function loadLeadsAndDetectChanges(hid) {
     const { data } = await supabase
       .from('leads')
-      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at)`)
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count)`)
       .eq('hotel_id', hid)
       .eq('status', 'processed')
       .order('created_at', { ascending: false })
@@ -234,7 +234,7 @@ export default function Dashboard() {
   async function loadLeads(hid) {
     const { data } = await supabase
       .from('leads')
-      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at)`)
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count)`)
       .eq('hotel_id', hid)
       .eq('status', 'processed')
       .order('created_at', { ascending: false })

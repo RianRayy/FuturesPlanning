@@ -45,6 +45,11 @@ CONTEXT:
 - Check-in: ${lead.dates_requested?.check_in ?? 'TBD'}
 - Original email sent: ${daysSinceSent} days ago
 - This is follow-up #${followUpNumber}
+- Email engagement: ${
+    decision.email_open_count > 0
+      ? `the planner HAS opened our email ${decision.email_open_count} time(s) but hasn't replied — they're aware of us, so a gentle nudge works well`
+      : `the planner has NOT opened our email yet — it may be buried in their inbox, so re-state the key value briefly`
+  }
 - Hotel tone/style: ${profile.personal_tone_summary ?? 'professional and warm'}
 
 ORIGINAL EMAIL SUBJECT: ${decision.draft_subject}
@@ -84,19 +89,44 @@ Respond ONLY with valid JSON, no markdown:
   return JSON.parse(cleaned)
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 async function sendViaGmail(
   to: string,
   subject: string,
   body: string,
-  accessToken: string
+  accessToken: string,
+  leadId: string
 ): Promise<string> {
+  const boundary = 'fp_' + crypto.randomUUID().replace(/-/g, '')
+  const pixelUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/track-open?lid=${leadId}`
+  const htmlBody =
+    `<div style="font-family:-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#222;white-space:pre-wrap;">` +
+    escapeHtml(body) +
+    `</div><img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;">`
+
   const message = [
     `To: ${to}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
     'Content-Type: text/plain; charset=utf-8',
     '',
-    body
+    body,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    htmlBody,
+    '',
+    `--${boundary}--`
   ].join('\r\n')
 
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
@@ -135,7 +165,8 @@ Deno.serve(async (req) => {
         *,
         lead_decisions(
           score, draft_subject, draft_body, sent_at,
-          follow_up_1_sent_at, follow_up_2_sent_at, follow_up_days
+          follow_up_1_sent_at, follow_up_2_sent_at, follow_up_days,
+          email_opened_at, email_open_count
         )
       `)
       .eq('status', 'processed')
@@ -235,7 +266,7 @@ Deno.serve(async (req) => {
 
       // Send via Gmail
       try {
-        await sendViaGmail(lead.contact_email, followUp.subject, followUp.body, accessToken)
+        await sendViaGmail(lead.contact_email, followUp.subject, followUp.body, accessToken, lead.id)
       } catch (err) {
         console.error(`Gmail send failed for lead ${lead.id}:`, err)
         continue

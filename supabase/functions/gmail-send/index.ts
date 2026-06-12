@@ -18,6 +18,47 @@ function toBase64Url(str: string): string {
     .replace(/=+$/g, '')
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+// Build a multipart email: plain-text part + HTML part with an
+// invisible tracking pixel so we know when the planner opens it
+export function buildEmail(to: string, subject: string, body: string, leadId: string | null): string {
+  const boundary = 'fp_' + crypto.randomUUID().replace(/-/g, '')
+  const pixelUrl = leadId
+    ? `${Deno.env.get('SUPABASE_URL')}/functions/v1/track-open?lid=${leadId}`
+    : null
+
+  const htmlBody =
+    `<div style="font-family:-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#222;white-space:pre-wrap;">` +
+    escapeHtml(body) +
+    `</div>` +
+    (pixelUrl ? `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;">` : '')
+
+  return [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    body,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    htmlBody,
+    '',
+    `--${boundary}--`
+  ].join('\r\n')
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -78,16 +119,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 3. Build RFC 2822 email message
-    const message = [
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/plain; charset=utf-8',
-      '',
-      body
-    ].join('\r\n')
-
+    // 3. Build RFC 2822 multipart email with open-tracking pixel
+    const message = buildEmail(to, subject, body, lead_id ?? null)
     const encoded = toBase64Url(message)
 
     // 4. Send via Gmail API

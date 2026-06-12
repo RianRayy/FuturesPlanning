@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../supabase'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { PLATFORM_CONFIG } from '../../integrations'
 import BidAdvisorModal from './BidAdvisorModal'
 
@@ -272,6 +272,14 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
         ) : (
           <div className="sent-badge">
             {emailWasSent ? 'Email sent ✓' : 'Approved ✓'}
+            {decision?.email_opened_at ? (
+              <span className="open-badge">
+                👁 Opened {decision.email_open_count > 1 ? `${decision.email_open_count}× · last ` : ''}
+                {formatDistanceToNow(new Date(decision.email_last_opened_at ?? decision.email_opened_at), { addSuffix: true })}
+              </span>
+            ) : emailWasSent ? (
+              <span className="open-badge open-badge-unopened">Not opened yet</span>
+            ) : null}
             {decision?.follow_up_2_sent_at && <span className="followup-badge">2 follow-ups sent</span>}
             {decision?.follow_up_1_sent_at && !decision?.follow_up_2_sent_at && <span className="followup-badge">1 follow-up sent</span>}
           </div>

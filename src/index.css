@@ -531,6 +531,8 @@ body {
 .btn-send:hover:not(:disabled) { background: #16a34a; }
 .sent-badge { color: var(--color-green); font-size: 13px; font-weight: 600; padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
 .followup-badge { font-size: 11px; color: #7c8db5; font-weight: 500; }
+.open-badge { font-size: 11px; color: #10b981; font-weight: 500; }
+.open-badge-unopened { color: #7c8db5; }
 .declined-badge { color: #ef4444; font-size: 13px; font-weight: 600; padding: 8px 0; }
 .btn-decline-sm {
   background: transparent; color: #ef4444;
