@@ -187,6 +187,13 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
         </div>
       )}
 
+      {/* Agent already asked the planner for missing details */}
+      {decision?.info_requested_at && !sent && (
+        <div className="info-requested-badge">
+          ✉ Agent asked the planner for missing details {formatDistanceToNow(new Date(decision.info_requested_at), { addSuffix: true })}
+        </div>
+      )}
+
       {/* Bid rate + win probability */}
       {!sent && decision?.draft_body && (
         <div className="card-bid-section" onClick={e => e.stopPropagation()}>
@@ -280,6 +287,12 @@ export default function LeadCard({ lead, hotelId, onUpdate, onDecline }) {
             ) : emailWasSent ? (
               <span className="open-badge open-badge-unopened">Not opened yet</span>
             ) : null}
+            {decision?.proposal_viewed_at && (
+              <span className="open-badge">
+                📄 Viewed proposal {decision.proposal_view_count > 1 ? `${decision.proposal_view_count}× · last ` : ''}
+                {formatDistanceToNow(new Date(decision.proposal_viewed_at), { addSuffix: true })}
+              </span>
+            )}
             {decision?.follow_up_2_sent_at && <span className="followup-badge">2 follow-ups sent</span>}
             {decision?.follow_up_1_sent_at && !decision?.follow_up_2_sent_at && <span className="followup-badge">1 follow-up sent</span>}
           </div>

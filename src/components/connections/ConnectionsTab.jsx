@@ -95,7 +95,10 @@ export default function ConnectionsTab({ hotelId, onConnectionChange }) {
 
   if (loading) return <div className="connections-loading">Loading connections...</div>
 
+  const embedSnippet = `<iframe src="${window.location.origin}/inquiry/${hotelId}" style="width:100%;max-width:680px;height:780px;border:none;border-radius:12px;" title="Group Inquiry Form"></iframe>`
+
   return (
+    <>
     <div className="connections-grid">
       {PLATFORMS.map(platform => {
         const connected = connections[platform.id]
@@ -189,6 +192,33 @@ export default function ConnectionsTab({ hotelId, onConnectionChange }) {
         )
       })}
     </div>
+
+    {/* Website inquiry form embed */}
+    <div className="embed-section">
+      <h3>Your Website Inquiry Form</h3>
+      <p className="embed-sub">
+        Paste this snippet on your hotel's website. Every inquiry submitted flows straight
+        into your dashboard, gets scored by the agent, and has a response drafted automatically.
+      </p>
+      <div className="embed-code-row">
+        <code className="embed-code">{embedSnippet}</code>
+        <button
+          className="btn-outline btn-sm"
+          onClick={() => navigator.clipboard.writeText(embedSnippet)}
+        >
+          Copy
+        </button>
+      </div>
+      <a
+        className="embed-preview-link"
+        href={`/inquiry/${hotelId}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Preview your form →
+      </a>
+    </div>
+    </>
   )
 }
 

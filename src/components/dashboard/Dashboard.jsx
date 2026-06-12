@@ -102,16 +102,23 @@ export default function Dashboard() {
     // Subscribe to real-time lead decision changes
     setupRealtimeSubscription(hid)
 
-    // Scan Gmail inbox for lead emails from Cvent, HotelPlanner, etc.
-    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-ingest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ hotel_id: hid })
-    }).catch(err => console.error('Gmail ingest error:', err))
+    // Gmail agents: scan inbox for new leads, then auto-request missing
+    // info on incomplete ones, and capture planner replies
+    const callFn = (name) =>
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({ hotel_id: hid })
+      })
+
+    callFn('gmail-ingest')
+      .then(() => Promise.allSettled([callFn('request-missing-info'), callFn('check-replies')]))
+      .then(() => Promise.all([loadLeadsAndDetectChanges(hid), loadReplyDrafts(hid)]))
+      .catch(err => console.error('Gmail agent error:', err))
 
     // Pull new leads from all connected platforms, then score them —
     // Delphi, Salesforce, HubSpot, Cvent, HotelPlanner all run in parallel
@@ -164,7 +171,7 @@ export default function Dashboard() {
   async function loadLeadsAndDetectChanges(hid) {
     const { data } = await supabase
       .from('leads')
-      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count)`)
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count, info_requested_at, proposal_viewed_at, proposal_view_count)`)
       .eq('hotel_id', hid)
       .eq('status', 'processed')
       .order('created_at', { ascending: false })
@@ -234,7 +241,7 @@ export default function Dashboard() {
   async function loadLeads(hid) {
     const { data } = await supabase
       .from('leads')
-      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count)`)
+      .select(`*, lead_decisions(score, reasoning, draft_subject, draft_body, sent_at, follow_up_1_sent_at, follow_up_2_sent_at, email_opened_at, email_last_opened_at, email_open_count, info_requested_at, proposal_viewed_at, proposal_view_count)`)
       .eq('hotel_id', hid)
       .eq('status', 'processed')
       .order('created_at', { ascending: false })

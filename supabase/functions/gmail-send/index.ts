@@ -26,17 +26,28 @@ function escapeHtml(str: string): string {
 }
 
 // Build a multipart email: plain-text part + HTML part with an
-// invisible tracking pixel so we know when the planner opens it
+// invisible tracking pixel so we know when the planner opens it,
+// plus a link to the branded proposal page
 export function buildEmail(to: string, subject: string, body: string, leadId: string | null): string {
   const boundary = 'fp_' + crypto.randomUUID().replace(/-/g, '')
   const pixelUrl = leadId
     ? `${Deno.env.get('SUPABASE_URL')}/functions/v1/track-open?lid=${leadId}`
     : null
+  const proposalUrl = leadId
+    ? `${Deno.env.get('APP_URL')}/p/${leadId}`
+    : null
+
+  const textBody = proposalUrl
+    ? `${body}\n\n—\nView your full proposal online: ${proposalUrl}`
+    : body
 
   const htmlBody =
     `<div style="font-family:-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#222;white-space:pre-wrap;">` +
     escapeHtml(body) +
     `</div>` +
+    (proposalUrl
+      ? `<div style="margin-top:24px;"><a href="${proposalUrl}" style="display:inline-block;background:#4f7ef8;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-family:-apple-system,'Segoe UI',sans-serif;font-size:14px;font-weight:600;">View Your Full Proposal</a></div>`
+      : '') +
     (pixelUrl ? `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;">` : '')
 
   return [
@@ -48,7 +59,7 @@ export function buildEmail(to: string, subject: string, body: string, leadId: st
     `--${boundary}`,
     'Content-Type: text/plain; charset=utf-8',
     '',
-    body,
+    textBody,
     '',
     `--${boundary}`,
     'Content-Type: text/html; charset=utf-8',
@@ -150,7 +161,8 @@ Deno.serve(async (req) => {
         .from('lead_decisions')
         .update({
           approved_at: new Date().toISOString(),
-          sent_at: new Date().toISOString()
+          sent_at: new Date().toISOString(),
+          bid_rate: bid_rate ?? null
         })
         .eq('lead_id', lead_id)
 

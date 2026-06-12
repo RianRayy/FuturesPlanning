@@ -8,6 +8,8 @@ import LeadDetail from './components/leads/LeadDetail'
 import Onboarding from './components/onboarding/Onboarding'
 import Profile from './components/profile/Profile'
 import OAuthCallback from './components/connections/OAuthCallback'
+import ProposalPage from './components/proposal/ProposalPage'
+import InquiryForm from './components/proposal/InquiryForm'
 import './index.css'
 
 function App() {
@@ -45,6 +47,9 @@ function App() {
         <Route path="/leads/:id" element={session ? <LeadDetail /> : <Navigate to="/login" />} />
         <Route path="/profile" element={session ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/oauth/callback/:provider" element={<OAuthCallback />} />
+        {/* Public pages — no auth, accessed by planners */}
+        <Route path="/p/:leadId" element={<ProposalPage />} />
+        <Route path="/inquiry/:hotelId" element={<InquiryForm />} />
         <Route path="*" element={<Navigate to={session ? "/dashboard" : "/login"} />} />
       </Routes>
     </BrowserRouter>

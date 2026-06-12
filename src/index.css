@@ -1448,3 +1448,128 @@ body {
   gap: 10px;
 }
 .btn-decline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* =============================================
+   Public Proposal Page (/p/:leadId)
+   ============================================= */
+.proposal-page {
+  min-height: 100vh; background: #f3f5fa;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 40px 16px;
+}
+.proposal-card {
+  background: #fff; border-radius: 16px; max-width: 720px; width: 100%;
+  padding: 40px 44px; box-shadow: 0 4px 32px rgba(15,23,42,0.08);
+  color: #1e293b;
+}
+.proposal-hotel-header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px; border-bottom: 2px solid #4f7ef8;
+  padding-bottom: 16px; margin-bottom: 20px;
+}
+.proposal-hotel-header h1 { font-size: 26px; font-weight: 700; color: #0f172a; }
+.proposal-tagline {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #4f7ef8;
+}
+.proposal-greeting { font-size: 15px; color: #475569; margin-bottom: 24px; }
+.proposal-summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+.proposal-stat {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 2px;
+}
+.proposal-stat-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.07em; color: #94a3b8;
+}
+.proposal-stat-value { font-size: 15px; font-weight: 600; color: #0f172a; }
+.proposal-stat-rate { background: rgba(79,126,248,0.07); border-color: rgba(79,126,248,0.3); }
+.proposal-stat-rate .proposal-stat-value { color: #4f7ef8; font-size: 18px; }
+.proposal-body {
+  font-size: 15px; line-height: 1.7; color: #334155;
+  white-space: pre-wrap; margin-bottom: 28px;
+}
+.proposal-about {
+  background: #f8fafc; border-radius: 12px; padding: 18px 20px; margin-bottom: 28px;
+}
+.proposal-about h3 { font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+.proposal-about p { font-size: 13px; line-height: 1.6; color: #475569; }
+.proposal-cta { text-align: center; padding-top: 8px; }
+.proposal-cta-btn {
+  display: inline-block; background: #4f7ef8; color: #fff;
+  padding: 12px 32px; border-radius: 10px; text-decoration: none;
+  font-size: 15px; font-weight: 600; transition: background 0.15s;
+}
+.proposal-cta-btn:hover { background: #3d6be0; }
+.proposal-cta-note { font-size: 12px; color: #94a3b8; margin-top: 10px; }
+.proposal-error-note { color: #64748b; font-size: 14px; margin-top: 8px; }
+.proposal-footer { margin-top: 24px; font-size: 11px; color: #94a3b8; }
+
+/* =============================================
+   Public Inquiry Form (/inquiry/:hotelId)
+   ============================================= */
+.inquiry-page {
+  min-height: 100vh; background: #f3f5fa;
+  display: flex; justify-content: center; padding: 24px 12px;
+}
+.inquiry-card {
+  background: #fff; border-radius: 16px; max-width: 640px; width: 100%;
+  padding: 32px 36px; box-shadow: 0 4px 32px rgba(15,23,42,0.08);
+  color: #1e293b; height: fit-content;
+}
+.inquiry-card h2 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.inquiry-sub { font-size: 13px; color: #64748b; margin-bottom: 22px; }
+.inquiry-card .form-label { color: #334155; font-size: 12px; font-weight: 600; }
+.inquiry-card .form-input {
+  background: #f8fafc; border: 1px solid #e2e8f0; color: #0f172a;
+  border-radius: 8px; padding: 9px 12px; font-size: 14px; width: 100%;
+}
+.inquiry-card .form-input:focus { border-color: #4f7ef8; outline: none; }
+.inquiry-card .form-group { margin-bottom: 14px; }
+.inquiry-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.inquiry-submit { width: 100%; padding: 12px; font-size: 15px; margin-top: 4px; }
+.inquiry-error {
+  background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3);
+  color: #dc2626; border-radius: 8px; padding: 10px 12px;
+  font-size: 13px; margin-bottom: 12px;
+}
+.inquiry-thanks { text-align: center; padding: 56px 36px; }
+.inquiry-thanks-icon {
+  width: 56px; height: 56px; border-radius: 50%; background: rgba(16,185,129,0.12);
+  color: #10b981; font-size: 28px; display: flex; align-items: center;
+  justify-content: center; margin: 0 auto 16px;
+}
+.inquiry-thanks p { color: #64748b; font-size: 14px; margin-top: 6px; }
+
+/* =============================================
+   Embed snippet section (Connections tab)
+   ============================================= */
+.embed-section {
+  margin-top: 32px; padding: 22px 24px;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+.embed-section h3 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.embed-sub { font-size: 13px; color: var(--color-text-muted); margin-bottom: 14px; }
+.embed-code-row { display: flex; gap: 10px; align-items: flex-start; }
+.embed-code {
+  flex: 1; display: block; background: #131825; color: #a0b0d0;
+  border: 1px solid #2d3149; border-radius: 8px; padding: 12px 14px;
+  font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all; line-height: 1.5;
+}
+.embed-preview-link {
+  display: inline-block; margin-top: 10px; font-size: 13px;
+  color: var(--color-primary); text-decoration: none; font-weight: 600;
+}
+.embed-preview-link:hover { text-decoration: underline; }
+
+/* Info-requested chip on lead cards */
+.info-requested-badge {
+  margin-top: 12px; padding: 8px 12px;
+  background: rgba(79,126,248,0.07); border: 1px solid rgba(79,126,248,0.2);
+  border-radius: 8px; font-size: 12px; color: #5b7fc7;
+}
