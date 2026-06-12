@@ -76,6 +76,38 @@ Deno.serve(async (req) => {
     const potentialRevLow  = nights && groupSize ? Math.round(nights * groupSize * rateMin) : null
     const potentialRevHigh = nights && groupSize ? Math.round(nights * groupSize * (leadBudget ?? rateMax)) : null
 
+    // Live PMS data from Cloudbeds, if connected — turns the
+    // suggestion from an estimate into real numbers
+    let pms: any = null
+    if (checkIn && checkOut) {
+      try {
+        const pmsRes = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudbeds-data`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'apikey':        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+            },
+            body: JSON.stringify({ hotel_id, check_in: checkIn, check_out: checkOut, rooms: groupSize || null })
+          }
+        )
+        const pmsData = await pmsRes.json()
+        if (pmsData.connected && !pmsData.error) pms = pmsData
+      } catch {
+        // PMS data is an enhancement, never a blocker
+      }
+    }
+
+    const pmsBlock = pms ? `
+LIVE PMS DATA (Cloudbeds — real availability and public rates for these exact dates):
+- Rooms actually available: ${pms.total_rooms_available}
+- Can fit this group of ${groupSize}: ${pms.can_fit_group === null ? 'unknown' : pms.can_fit_group ? 'YES' : 'NO — availability is tight, price accordingly or flag the constraint'}
+- Current public rates for these dates: ${pms.rate_low && pms.rate_high ? `$${pms.rate_low} – $${pms.rate_high}/night` : 'not returned'}
+- Room types: ${pms.room_types?.slice(0, 6).map((rt: any) => `${rt.name} (${rt.available} avail${rt.rate ? `, $${rt.rate}` : ''})`).join('; ') ?? 'n/a'}
+Weight this heavily: group rates typically run 10-25% below public rates. If availability is tight, discount less.` : ''
+
     const prompt = `You are a hotel revenue management expert helping ${hotelName} determine the optimal group rate to bid on an RFP. Your goal is to maximize win probability WITHOUT leaving money on the table.
 
 HOTEL:
@@ -98,7 +130,7 @@ RFP DETAILS:
 - Agent score: ${lead.lead_decisions?.score ?? 'unknown'}
 - Agent reasoning: ${lead.lead_decisions?.reasoning ?? 'not available'}
 ${potentialRevLow && potentialRevHigh ? `- Total revenue potential: $${potentialRevLow.toLocaleString()} – $${potentialRevHigh.toLocaleString()}` : ''}
-
+${pmsBlock}
 BIDDING GUIDELINES:
 - Never bid below the hotel's rate minimum ($${rateMin}/night) unless there is a strong strategic reason
 - If the planner disclosed their budget, bid 5-12% below it to be clearly competitive while preserving margin
@@ -148,7 +180,18 @@ Respond ONLY with valid JSON, no markdown:
     }
 
     return new Response(
-      JSON.stringify({ ...suggestion, lead_budget: leadBudget, rate_min: rateMin, rate_max: rateMax }),
+      JSON.stringify({
+        ...suggestion,
+        lead_budget: leadBudget,
+        rate_min: rateMin,
+        rate_max: rateMax,
+        live_availability: pms ? {
+          total_rooms_available: pms.total_rooms_available,
+          can_fit_group:         pms.can_fit_group,
+          public_rate_low:       pms.rate_low,
+          public_rate_high:      pms.rate_high
+        } : null
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

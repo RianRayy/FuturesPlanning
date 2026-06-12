@@ -49,6 +49,9 @@ export default function Profile() {
   const [analyzingTone, setAnalyzingTone] = useState(false)
   const [toneAnalyzed, setToneAnalyzed] = useState(false)
   const [hasEmailConnection, setHasEmailConnection] = useState(false)
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [analyzingSite, setAnalyzingSite] = useState(false)
+  const [siteResult, setSiteResult] = useState(null)   // 'ok' | error string
 
   const [userForm, setUserForm] = useState({ full_name: '', email: '' })
   const [hotelForm, setHotelForm] = useState({
@@ -116,6 +119,7 @@ export default function Profile() {
         }))
         if (profile.personal_tone_samples) setEmailSamples(profile.personal_tone_samples)
         if (profile.personal_tone_summary) setToneAnalyzed(true)
+        if (profile.website_url) setWebsiteUrl(profile.website_url)
       }
 
       // Check if Gmail or Outlook is connected
@@ -160,6 +164,35 @@ export default function Profile() {
       console.error('Tone analysis error:', err)
     }
     setAnalyzingTone(false)
+  }
+
+  async function handleAnalyzeWebsite() {
+    if (!websiteUrl.trim()) return
+    setAnalyzingSite(true)
+    setSiteResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-website`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ hotel_id: hotelId, url: websiteUrl })
+        }
+      )
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error || 'Analysis failed')
+      setSiteResult('ok')
+      // Reload the form with the freshly extracted profile
+      await loadProfile()
+    } catch (err) {
+      setSiteResult(err.message)
+    }
+    setAnalyzingSite(false)
   }
 
   function toggleSegment(seg) {
@@ -300,6 +333,42 @@ export default function Profile() {
             <div className="profile-section">
               <h2>Hotel Information</h2>
               <p className="section-desc">Basic details about your property.</p>
+
+              {/* AI self-onboarding — fill the whole profile from the hotel website */}
+              <div className="website-analyze-box">
+                <div className="website-analyze-head">
+                  <span className="website-analyze-title">✨ Auto-fill from your website</span>
+                  <span className="website-analyze-sub">
+                    Paste your hotel's website and the agent fills in your description, event spaces,
+                    room count, target segments, and brand voice — automatically.
+                  </span>
+                </div>
+                <div className="website-analyze-row">
+                  <input
+                    className="website-analyze-input"
+                    placeholder="www.yourhotel.com"
+                    value={websiteUrl}
+                    onChange={e => setWebsiteUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAnalyzeWebsite()}
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={handleAnalyzeWebsite}
+                    disabled={analyzingSite || !websiteUrl.trim()}
+                  >
+                    {analyzingSite ? 'Reading your site...' : 'Analyze Website'}
+                  </button>
+                </div>
+                {siteResult === 'ok' && (
+                  <div className="website-analyze-success">
+                    ✓ Profile filled from your website — review the fields below and save.
+                  </div>
+                )}
+                {siteResult && siteResult !== 'ok' && (
+                  <div className="website-analyze-error">⚠ {siteResult}</div>
+                )}
+              </div>
+
               <div className="profile-form">
                 <div className="form-group">
                   <label>Hotel Name</label>

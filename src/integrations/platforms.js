@@ -84,6 +84,23 @@ export const PLATFORMS = [
     </svg>`
   },
   {
+    id: 'cloudbeds',
+    name: 'Cloudbeds',
+    by: 'PMS',
+    description: 'Live room availability & rates power accurate proposals and the bid advisor',
+    color: '#1aa6b8',
+    bg: '#062a2e',
+    authType: 'apikey',
+    fields: [
+      { key: 'api_key',     label: 'API Key',     type: 'password', hint: 'Cloudbeds → Account → Apps & Marketplace → API Credentials → Create' },
+      { key: 'property_id', label: 'Property ID', type: 'text',     hint: 'Shown on the same API credentials page' }
+    ],
+    logo: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="8" fill="#1aa6b8"/>
+      <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="sans-serif">CB</text>
+    </svg>`
+  },
+  {
     id: 'opera',
     name: 'Opera',
     by: 'by Oracle',

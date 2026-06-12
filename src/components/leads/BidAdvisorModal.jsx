@@ -168,6 +168,22 @@ export default function BidAdvisorModal({ lead, decision, hotelId, onConfirm, on
                     )}
                   </div>
                 )}
+
+                {/* Live PMS data — only shows when Cloudbeds is connected */}
+                {suggestion?.live_availability && (
+                  <div className={`bid-live-pms ${suggestion.live_availability.can_fit_group === false ? 'bid-live-pms-warn' : ''}`}>
+                    <span className="bid-live-pms-dot" />
+                    Live from your PMS: <strong>{suggestion.live_availability.total_rooms_available} rooms available</strong> for these dates
+                    {suggestion.live_availability.public_rate_low && (
+                      <> · public rate ${suggestion.live_availability.public_rate_low}
+                        {suggestion.live_availability.public_rate_high !== suggestion.live_availability.public_rate_low
+                          ? `–$${suggestion.live_availability.public_rate_high}` : ''}/night</>
+                    )}
+                    {suggestion.live_availability.can_fit_group === false && (
+                      <strong> · ⚠ may not fit this group</strong>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Win probability — updates live as rate changes */}
