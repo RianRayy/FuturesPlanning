@@ -17,7 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 }
 
-const CB_BASE = 'https://api.cloudbeds.com/api/v1.2'
+const CB_BASE = 'https://api.cloudbeds.com/api/v1.3'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })

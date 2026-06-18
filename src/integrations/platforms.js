@@ -101,6 +101,22 @@ export const PLATFORMS = [
     </svg>`
   },
   {
+    id: 'mews',
+    name: 'Mews',
+    by: 'PMS',
+    description: 'Live room availability feeds the bid advisor — open API, boutique & mid-scale hotels',
+    color: '#1f6feb',
+    bg: '#0a1d3d',
+    authType: 'apikey',
+    fields: [
+      { key: 'access_token', label: 'Access Token', type: 'password', hint: 'Mews → Marketplace → Integrations → your enterprise Access Token' }
+    ],
+    logo: `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="40" height="40" rx="8" fill="#1f6feb"/>
+      <text x="50%" y="58%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="sans-serif">Mews</text>
+    </svg>`
+  },
+  {
     id: 'opera',
     name: 'Opera',
     by: 'by Oracle',

@@ -76,28 +76,33 @@ Deno.serve(async (req) => {
     const potentialRevLow  = nights && groupSize ? Math.round(nights * groupSize * rateMin) : null
     const potentialRevHigh = nights && groupSize ? Math.round(nights * groupSize * (leadBudget ?? rateMax)) : null
 
-    // Live PMS data from Cloudbeds, if connected — turns the
-    // suggestion from an estimate into real numbers
+    // Live PMS data from whichever PMS the hotel has connected
+    // (Cloudbeds or Mews) — turns the suggestion from an estimate
+    // into real availability + rates. Prefers a real connection
+    // over a demo fallback.
+    async function callPms(fn: string) {
+      try {
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/${fn}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'apikey':        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+          },
+          body: JSON.stringify({ hotel_id, check_in: checkIn, check_out: checkOut, rooms: groupSize || null })
+        })
+        const data = await res.json()
+        return data.connected && !data.error ? data : null
+      } catch {
+        return null   // PMS data is an enhancement, never a blocker
+      }
+    }
+
     let pms: any = null
     if (checkIn && checkOut) {
-      try {
-        const pmsRes = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/cloudbeds-data`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'apikey':        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-            },
-            body: JSON.stringify({ hotel_id, check_in: checkIn, check_out: checkOut, rooms: groupSize || null })
-          }
-        )
-        const pmsData = await pmsRes.json()
-        if (pmsData.connected && !pmsData.error) pms = pmsData
-      } catch {
-        // PMS data is an enhancement, never a blocker
-      }
+      const [cb, mw] = await Promise.all([callPms('cloudbeds-data'), callPms('mews-data')])
+      // Prefer a real (non-demo) connection; fall back to any connected source
+      pms = [cb, mw].find(p => p && p.demo !== true) ?? [cb, mw].find(Boolean) ?? null
     }
 
     const pmsBlock = pms ? `
